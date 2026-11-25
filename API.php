@@ -10,6 +10,7 @@
 namespace Piwik\Plugins\RebelMyForms;
 
 use Piwik\Archive;
+use Piwik\Common;
 use Piwik\DataTable;
 use Piwik\Piwik;
 use Piwik\Plugins\RebelMyForms\RecordBuilders\Forms;
@@ -64,9 +65,30 @@ class API extends \Piwik\Plugin\API
     }
 
     /**
+     * The forms of a period by the page they are on.
+     *
+     * @param int|string $idSite
+     * @param string $period
+     * @param string $date
+     * @param string|false $segment
+     * @return DataTable|DataTable\Map
+     */
+    public function getPages($idSite, $period, $date, $segment = false)
+    {
+        Piwik::checkUserHasViewAccess($idSite);
+
+        $table = Archive::createDataTableFromArchive(Forms::PAGES, $idSite, $period, $date, $segment);
+        $table->filter('ColumnCallbackAddMetadata', ['label', 'url', function ($label) {
+            return preg_match('#^https?://#i', (string) $label) ? Common::unsanitizeInputValue($label) : false;
+        }]);
+
+        return $table;
+    }
+
+    /**
      * The fields of one form: how many visitors used each, the average time they had it in focus
-     * in seconds, how often it was changed, gone back to, left empty in a submitted form, and how
-     * often it was the last field of a visitor who did not submit.
+     * in seconds, how often it was changed, gone back to, left empty in a submitted form, refused by
+     * the browser, and how often it was the last field of a visitor who did not submit.
      *
      * @param int|string $idSite
      * @param string $period

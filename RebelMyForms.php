@@ -19,6 +19,7 @@ class RebelMyForms extends Plugin
         'nb_form_views' => 'ColumnViews',
         'nb_form_starts' => 'ColumnStarts',
         'nb_form_submissions' => 'ColumnSubmissions',
+        'nb_form_resubmits' => 'ColumnResubmits',
         'form_start_rate' => 'ColumnStartRate',
         'form_submit_rate' => 'ColumnSubmitRate',
         'avg_form_time' => 'ColumnAvgFormTime',
@@ -27,6 +28,7 @@ class RebelMyForms extends Plugin
         'nb_field_changes' => 'ColumnChanges',
         'nb_field_refocuses' => 'ColumnRefocuses',
         'nb_field_blank' => 'ColumnBlank',
+        'nb_field_invalid' => 'ColumnInvalid',
         'nb_field_dropoffs' => 'ColumnDropoffs',
         'field_dropoff_rate' => 'ColumnDropoffRate',
     ];
@@ -59,6 +61,7 @@ class RebelMyForms extends Plugin
     public function getStylesheetFiles(&$stylesheets)
     {
         $stylesheets[] = 'plugins/RebelMyForms/stylesheets/menuIcon.less';
+        $stylesheets[] = 'plugins/RebelMyForms/stylesheets/reports.less';
     }
 
     public function addMetricTranslations(&$translations)

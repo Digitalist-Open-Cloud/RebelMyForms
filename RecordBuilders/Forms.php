@@ -24,6 +24,7 @@ use Piwik\Plugins\RebelMyForms\Dao\LogForm;
 class Forms extends RecordBuilder
 {
     public const RECORD = 'RebelMyForms_forms';
+    public const PAGES = 'RebelMyForms_pages';
     public const NB_VIEWS = 'RebelMyForms_nb_form_views';
     public const NB_STARTS = 'RebelMyForms_nb_form_starts';
     public const NB_SUBMISSIONS = 'RebelMyForms_nb_form_submissions';
@@ -36,6 +37,7 @@ class Forms extends RecordBuilder
         'nb_field_changes' => 0,
         'nb_field_refocuses' => 0,
         'nb_field_blank' => 0,
+        'nb_field_invalid' => 0,
         'nb_field_dropoffs' => 0,
     ];
 
@@ -50,6 +52,7 @@ class Forms extends RecordBuilder
     {
         return [
             Record::make(Record::TYPE_BLOB, self::RECORD),
+            Record::make(Record::TYPE_BLOB, self::PAGES),
             Record::make(Record::TYPE_NUMERIC, self::NB_VIEWS),
             Record::make(Record::TYPE_NUMERIC, self::NB_STARTS),
             Record::make(Record::TYPE_NUMERIC, self::NB_SUBMISSIONS),
@@ -81,7 +84,8 @@ class Forms extends RecordBuilder
 
         $query = $logAggregator->generateQuery(
             "$log.form_name AS label, COUNT(*) AS nb_form_views, SUM($log.started) AS nb_form_starts,
-             SUM($log.submitted) AS nb_form_submissions, SUM($log.time_spent) AS sum_form_time",
+             SUM($log.submitted) AS nb_form_submissions, SUM($log.resubmits > 0) AS nb_form_resubmits,
+             SUM($log.time_spent) AS sum_form_time",
             [$log],
             $where,
             'label',
@@ -95,6 +99,19 @@ class Forms extends RecordBuilder
             $totals[self::NB_VIEWS] += (int) $form['nb_form_views'];
             $totals[self::NB_STARTS] += (int) $form['nb_form_starts'];
             $totals[self::NB_SUBMISSIONS] += (int) $form['nb_form_submissions'];
+        }
+
+        $query = $logAggregator->generateQuery(
+            "$log.page_url AS label, COUNT(*) AS nb_form_views, SUM($log.started) AS nb_form_starts,
+             SUM($log.submitted) AS nb_form_submissions",
+            [$log],
+            $where,
+            'label',
+            'nb_form_views DESC'
+        );
+        $pages = new DataTable();
+        foreach ($logAggregator->getDb()->fetchAll($query['sql'], $query['bind']) as $page) {
+            $pages->addRowFromSimpleArray(array_map('intval', array_slice($page, 1)) + ['label' => $page['label']]);
         }
 
         $query = $logAggregator->generateQuery(
@@ -121,7 +138,7 @@ class Forms extends RecordBuilder
             }
         }
 
-        return [self::RECORD => $table] + $totals;
+        return [self::RECORD => $table, self::PAGES => $pages] + $totals;
     }
 
     /**
@@ -135,7 +152,8 @@ class Forms extends RecordBuilder
         $sums = $sums ?? [];
         $fields = json_decode((string) $form['fields'], true);
 
-        foreach (is_array($fields) ? $fields : [] as [$name, $time, $changes, $focuses, $blank]) {
+        foreach (is_array($fields) ? $fields : [] as $field) {
+            [$name, $time, $changes, $focuses, $blank] = $field;
             $sum = $sums[$name] ?? self::FIELD_COLUMNS;
             $sum['nb_field_interactions'] += (int) ($focuses > 0 || $changes > 0);
             $sum['sum_field_time'] += $time;
@@ -143,6 +161,7 @@ class Forms extends RecordBuilder
             $sum['nb_field_refocuses'] += max(0, $focuses - 1);
             // A field that is empty says something when the form was sent with it empty.
             $sum['nb_field_blank'] += (int) ($blank && $form['submitted']);
+            $sum['nb_field_invalid'] += $field[5] ?? 0;
             $sums[$name] = $sum;
         }
 

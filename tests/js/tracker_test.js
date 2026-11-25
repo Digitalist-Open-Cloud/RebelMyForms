@@ -56,8 +56,8 @@ Deno.test("a form on the page is sent as seen", () => {
   const env = load({ forms: [makeForm(), makeForm({ name: "search" })] });
 
   assertEquals(env.requests, [
-    { ca: "1", rmf_n: "contact", rmf_s: "0", rmf_c: "0", rmf_t: "0", rmf_l: "", rmf_f: "[]" },
-    { ca: "1", rmf_n: "search", rmf_s: "0", rmf_c: "0", rmf_t: "0", rmf_l: "", rmf_f: "[]" },
+    { ca: "1", rmf_n: "contact", rmf_s: "0", rmf_c: "0", rmf_r: "0", rmf_t: "0", rmf_l: "", rmf_f: "[]" },
+    { ca: "1", rmf_n: "search", rmf_s: "0", rmf_c: "0", rmf_r: "0", rmf_t: "0", rmf_l: "", rmf_f: "[]" },
   ]);
 });
 
@@ -92,8 +92,8 @@ Deno.test("a submitted form is sent with what happened in its fields", () => {
   env.fire("submit", form, 300);
 
   assertEquals(env.requests.length, 2);
-  assertEquals({ ...env.last(), rmf_f: "" }, { ca: "1", rmf_n: "contact", rmf_s: "1", rmf_c: "1", rmf_t: "6000", rmf_l: "email", rmf_f: "" });
-  assertEquals(env.fields(), [["name", 2000, 1, 1, 0], ["email", 3500, 1, 2, 0], ["phone", 0, 0, 0, 1]]);
+  assertEquals({ ...env.last(), rmf_f: "" }, { ca: "1", rmf_n: "contact", rmf_s: "1", rmf_c: "1", rmf_r: "0", rmf_t: "6000", rmf_l: "email", rmf_f: "" });
+  assertEquals(env.fields(), [["name", 2000, 1, 1, 0, 0], ["email", 3500, 1, 2, 0, 0], ["phone", 0, 0, 0, 1, 0]]);
 });
 
 Deno.test("what a visitor typed is not sent", () => {
@@ -126,7 +126,7 @@ Deno.test("a form that was started is sent when the visitor leaves, with the fie
   assertEquals(env.last().rmf_s, "1");
   assertEquals(env.last().rmf_c, "0");
   assertEquals(env.last().rmf_l, "email");
-  assertEquals(env.fields(), [["name", 1000, 0, 1, 1], ["email", 4000, 0, 1, 1]]);
+  assertEquals(env.fields(), [["name", 1000, 0, 1, 1, 0], ["email", 4000, 0, 1, 1, 0]]);
 });
 
 Deno.test("a hidden tab sends the form, and nothing is sent twice", () => {
@@ -156,7 +156,23 @@ Deno.test("the radio buttons of a group are one field, filled in when one is che
   env.fire("change", yes);
   env.fire("submit", form);
 
-  assertEquals(env.fields(), [["answer", 0, 1, 0, 0], ["terms", 0, 0, 0, 1]]);
+  assertEquals(env.fields(), [["answer", 0, 1, 0, 0, 0], ["terms", 0, 0, 0, 1, 0]]);
+});
+
+Deno.test("a field the browser refused and a form that is submitted again are counted", () => {
+  const form = makeForm();
+  const email = field(form, { name: "email" });
+  const env = load({ forms: [form] });
+
+  env.fire("invalid", email);
+  env.fire("pagehide");
+  assertEquals(env.last().rmf_c, "0");
+  assertEquals(env.fields(), [["email", 0, 0, 0, 1, 1]]);
+
+  env.fire("submit", form);
+  assertEquals([env.last().rmf_c, env.last().rmf_r], ["1", "0"]);
+  env.fire("submit", form);
+  assertEquals([env.last().rmf_c, env.last().rmf_r], ["1", "1"]);
 });
 
 Deno.test("a form or a field that is marked to be ignored is left out", () => {

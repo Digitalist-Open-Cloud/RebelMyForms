@@ -89,7 +89,7 @@
       if (state.fields.length >= MAX_FIELDS) {
           return null;
       }
-      var field = { name: name, time: 0, changes: 0, focuses: 0, focusAt: 0, blank: 1 };
+      var field = { name: name, time: 0, changes: 0, focuses: 0, invalid: 0, focusAt: 0, blank: 1 };
       state.fields.push(field);
       return field;
   }
@@ -113,13 +113,14 @@
           }
           for (i = 0; i < state.fields.length; i++) {
               var f = state.fields[i];
-              fields.push([f.name, f.time + (f.focusAt ? now - f.focusAt : 0), f.changes, f.focuses, f.blank]);
+              fields.push([f.name, f.time + (f.focusAt ? now - f.focusAt : 0), f.changes, f.focuses, f.blank, f.invalid]);
           }
       }
 
       var request = 'ca=1&rmf_n=' + encodeURIComponent(state.name)
           + '&rmf_s=' + state.started
-          + '&rmf_c=' + state.submitted
+          + '&rmf_c=' + (state.submits ? 1 : 0)
+          + '&rmf_r=' + Math.max(0, state.submits - 1)
           + '&rmf_t=' + (state.lastAt - state.firstAt)
           + '&rmf_l=' + encodeURIComponent(state.last)
           + '&rmf_f=' + encodeURIComponent(JSON.stringify(fields));
@@ -144,7 +145,7 @@
       if (forms.length >= MAX_FORMS_PER_PAGE || ignored(form)) {
           return null;
       }
-      var state = { form: form, name: formName(form), started: 0, submitted: 0, firstAt: 0, lastAt: 0, fields: [], last: '', sent: '' };
+      var state = { form: form, name: formName(form), started: 0, submits: 0, firstAt: 0, lastAt: 0, fields: [], last: '', sent: '' };
       forms.push(state);
       send(state);
       return state;
@@ -194,11 +195,19 @@
       }
   }
 
+  // The browser refused to send the form because of this field.
+  function onInvalid(event) {
+      var field = touched(event);
+      if (field) {
+          field.invalid++;
+      }
+  }
+
   function onSubmit(event) {
       var state = event.target && event.target.tagName === 'FORM' ? stateOf(event.target) : null;
       if (state) {
           start(state, Date.now());
-          state.submitted = 1;
+          state.submits++;
           send(state);
       }
   }
@@ -239,6 +248,7 @@
   document.addEventListener('focusin', safely(onFocusIn), true);
   document.addEventListener('focusout', safely(onFocusOut), true);
   document.addEventListener('change', safely(onChange), true);
+  document.addEventListener('invalid', safely(onInvalid), true);
   document.addEventListener('submit', safely(onSubmit), true);
   document.addEventListener('visibilitychange', safely(onVisibilityChange));
   window.addEventListener('pagehide', safely(onLeave));

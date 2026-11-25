@@ -11,6 +11,7 @@ namespace Piwik\Plugins\RebelMyForms\Actions;
 
 use Piwik\Date;
 use Piwik\Plugins\RebelMyForms\Dao\LogForm;
+use Piwik\Plugins\RebelMyForms\MeasurableSettings;
 use Piwik\Plugins\RebelMyForms\Tracker\FormReport;
 use Piwik\Tracker\Action;
 use Piwik\Tracker\Request;
@@ -44,15 +45,20 @@ class ActionForm extends Action
     public function record(Visitor $visitor, $idReferrerActionUrl, $idReferrerActionName)
     {
         $form = FormReport::fromRequestParams($this->request->getParams());
+        $idSite = (int) $this->request->getIdSite();
         $idVisit = $visitor->getVisitorColumn('idvisit');
         $log = new LogForm();
 
-        if ($form === null || $log->countForVisit($idVisit) >= self::MAX_FORMS_PER_VISIT) {
+        if (
+            $form === null
+            || !(new MeasurableSettings($idSite))->enabled->getValue()
+            || $log->countForVisit($idVisit) >= self::MAX_FORMS_PER_VISIT
+        ) {
             return;
         }
 
         $log->record($form + [
-            'idsite' => (int) $this->request->getIdSite(),
+            'idsite' => $idSite,
             'idvisit' => $idVisit,
             'idvisitor' => $visitor->getVisitorColumn('idvisitor'),
             'server_time' => Date::factory((int) $this->request->getCurrentTimestamp())->getDatetime(),
