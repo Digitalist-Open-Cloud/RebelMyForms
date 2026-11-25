@@ -125,6 +125,11 @@ types shows who gives up.
 The visit log and the visitor profile list the forms a visitor started, with whether they
 submitted them or the field they left at.
 
+## Funnels
+
+With the plugin RebelFunnels active, a step of a funnel can be "Form started", "Form
+submitted" or "Form went through", for the forms whose name matches.
+
 ## Documentation in Matomo
 
 **Form analytics documentation** under Administration > System tells the same as this file, for

@@ -36,6 +36,13 @@ class FormOutcome extends Dimension
     protected $acceptValues = 'seen, abandoned, submitted, succeeded';
     protected $sqlFilterValue = [self::class, 'toNumber'];
 
+    public function __construct()
+    {
+        $this->suggestedValuesCallback = function () {
+            return array_keys(self::WORDS);
+        };
+    }
+
     /**
      * The stored number of a word of the segment. A word that is none of them matches nothing.
      *

@@ -10,6 +10,7 @@
 namespace Piwik\Plugins\RebelMyForms\Dao;
 
 use Piwik\Common;
+use Piwik\Date;
 use Piwik\Db;
 use Piwik\DbHelper;
 use Piwik\Plugins\RebelMyForms\Columns\FormOutcome;
@@ -20,6 +21,8 @@ use Piwik\Plugins\RebelMyForms\Columns\FormOutcome;
 class LogForm
 {
     public const TABLE = 'rebelmyforms_log';
+
+    private const DAYS_OF_SUGGESTIONS = 60;
 
     // ponytail: the fields are JSON on the row of their form and summed in PHP when archiving.
     // A table of their own when a segment on a field is needed.
@@ -100,6 +103,21 @@ class LogForm
     public function countForVisit($idVisit): int
     {
         return (int) Db::fetchOne('SELECT COUNT(*) FROM ' . $this->table() . ' WHERE idvisit = ?', [$idVisit]);
+    }
+
+    /**
+     * The names of the forms of a website that were seen most in the last days, as they are stored.
+     *
+     * @return string[]
+     */
+    public function getMostSeenFormNames(int $idSite, int $limit): array
+    {
+        return array_column(Db::fetchAll(
+            'SELECT form_name FROM ' . $this->table() . '
+              WHERE idsite = ? AND server_time > ?
+              GROUP BY form_name ORDER BY COUNT(*) DESC, form_name LIMIT ' . max(1, $limit),
+            [$idSite, Date::now()->subDay(self::DAYS_OF_SUGGESTIONS)->getDatetime()]
+        ), 'form_name');
     }
 
     /**

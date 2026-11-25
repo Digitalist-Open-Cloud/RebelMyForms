@@ -12,6 +12,7 @@ namespace Piwik\Plugins\RebelMyForms\tests\Integration;
 use Piwik\API\Request;
 use Piwik\Common;
 use Piwik\DataTable;
+use Piwik\Date;
 use Piwik\Db;
 use Piwik\NoAccessException;
 use Piwik\Plugins\API\API as ApiApi;
@@ -50,6 +51,12 @@ class TrackingTest extends IntegrationTestCase
         Fixture::createWebsite('2024-01-01 00:00:00');
         Fixture::createWebsite('2024-01-01 00:00:00');
         $this->visits = 0;
+    }
+
+    public function tearDown(): void
+    {
+        Date::$now = null;
+        parent::tearDown();
     }
 
     public function testAFormIsStoredWithTheVisitItWasSeenIn()
@@ -354,6 +361,21 @@ class TrackingTest extends IntegrationTestCase
         $summary = VisitsSummaryApi::getInstance()->get(1, 'day', self::DAY, 'formName==newsletter')->getFirstRow();
 
         $this->assertEquals(1, $summary->getColumn('nb_visits'));
+    }
+
+    public function testTheFormsOfAWebsiteAreSuggestedForTheSegments()
+    {
+        $this->trackFormsOfThreeVisits();
+        $this->trackForm($this->startVisit(2), 'other website');
+        // The forms of the last days are suggested.
+        Date::$now = strtotime(self::DAY . ' 12:00:00 UTC');
+
+        $suggested = function (string $segment) {
+            return Request::processRequest('API.getSuggestedValuesForSegment', ['idSite' => 1, 'segmentName' => $segment]);
+        };
+
+        $this->assertSame(['contact', 'newsletter'], $suggested('formName'));
+        $this->assertSame(['seen', 'abandoned', 'submitted', 'succeeded'], $suggested('formOutcome'));
     }
 
     public function testFormsAreDeletedWithTheirVisit()
