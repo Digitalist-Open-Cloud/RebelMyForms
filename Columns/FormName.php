@@ -26,4 +26,12 @@ class FormName extends Dimension
 
     // The names are stored encoded for HTML, so a value to compare with is encoded the same way.
     protected $sqlFilterValue = [Common::class, 'sanitizeInputValue'];
+
+    public function __construct()
+    {
+        // Matomo only knows the page views and events of a visit, not its forms.
+        $this->suggestedValuesCallback = function ($idSite, $maxValuesToReturn) {
+            return (new LogForm())->getMostSeenFormNames((int) $idSite, (int) $maxValuesToReturn);
+        };
+    }
 }

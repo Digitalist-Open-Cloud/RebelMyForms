@@ -18,6 +18,7 @@
 - The report "Forms by device type".
 - How long visitors wait before they start a form, and how long they hesitate in a field before they answer.
 - The report "Fields of all forms", where a field can be followed over time.
+- A form that was started, submitted or went through can be a step of a funnel in RebelFunnels.
 - The segment "Form outcome": seen, abandoned, submitted or succeeded.
 - The segment "Form", to narrow any report to the visits that saw a form.
 - The attributes `data-rebel-form` and `data-rebel-field` to name a form or a field, and `data-rebel-ignore` to leave one out.
