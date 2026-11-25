@@ -88,7 +88,7 @@ class TrackingTest extends IntegrationTestCase
         $this->assertEquals(1, $forms[0]['started']);
         $this->assertEquals(1, $forms[0]['submitted']);
         $this->assertEquals(5000, $forms[0]['time_spent']);
-        $this->assertSame('[["name",2000,1,1,0,0,0],["email",3000,1,1,0,0,0]]', $forms[0]['fields']);
+        $this->assertSame('[["name",2000,1,1,0,0,0,0],["email",3000,1,1,0,0,0,0]]', $forms[0]['fields']);
         $this->assertSame('http://example.org/contact', $forms[0]['page_url']);
     }
 
@@ -133,6 +133,7 @@ class TrackingTest extends IntegrationTestCase
         $this->assertEquals(0.5, $contact->getColumn('form_submit_rate'));
         $this->assertEquals(1, $contact->getColumn('nb_form_resubmits'));
         $this->assertFalse($contact->getColumn('sum_form_time'));
+        $this->assertEquals(4, $contact->getColumn('avg_form_wait'));
         // (10 + 4 seconds) / 2 starts
         $this->assertEquals(7, $contact->getColumn('avg_form_time'));
 
@@ -165,6 +166,9 @@ class TrackingTest extends IntegrationTestCase
         $this->assertEquals(2, $email->getColumn('nb_field_refocuses'));
         $this->assertEquals(1, $email->getColumn('nb_field_dropoffs'));
         $this->assertEquals(2, $email->getColumn('nb_field_invalid'));
+        $this->assertEquals(1, $email->getColumn('avg_field_hesitation'));
+        $this->assertFalse($email->getColumn('nb_field_hesitations'));
+        $this->assertEquals(0, $name->getColumn('avg_field_hesitation'));
         $this->assertEquals(0.5, $email->getColumn('field_dropoff_rate'));
 
         // Nobody used it, and it was empty in the one form that was submitted.
@@ -237,6 +241,21 @@ class TrackingTest extends IntegrationTestCase
 
         $evolution = ApiApi::getInstance()->getRowEvolution(1, 'day', '2024-03-04,' . self::DAY, 'RebelMyForms', 'getDevices', 'Smartphone');
         $this->assertEquals(2, $evolution['reportData']->getTable(self::DAY)->getFirstRow()->getColumn('nb_form_views'));
+    }
+
+    public function testAFieldCanBeFollowedOverTimeAmongTheFieldsOfAllForms()
+    {
+        $this->trackFormsOfThreeVisits('2024-03-04');
+        $this->trackFormsOfThreeVisits();
+
+        $fields = $this->report('getAllFields');
+        $this->assertSame(['contact › email', 'contact › name', 'contact › phone'], $fields->getColumn('label'));
+        $this->assertEquals([1, 0, 0], $fields->getColumn('nb_field_dropoffs'));
+        $this->assertEquals(0.5, $fields->getFirstRow()->getColumn('field_dropoff_rate'));
+
+        $evolution = ApiApi::getInstance()->getRowEvolution(1, 'day', '2024-03-04,' . self::DAY, 'RebelMyForms', 'getAllFields', 'contact › email');
+        $this->assertEquals(1, $evolution['reportData']->getTable('2024-03-04')->getFirstRow()->getColumn('nb_field_dropoffs'));
+        $this->assertEquals(2, $this->report('getAllFields', 'week')->getFirstRow()->getColumn('nb_field_dropoffs'));
     }
 
     public function testFormsAreReportedByThePageTheyAreOn()
@@ -366,7 +385,7 @@ class TrackingTest extends IntegrationTestCase
 
     public function getReports(): array
     {
-        return [['get', []], ['getForms', []], ['getPages', []], ['getDevices', []], ['getFields', [1]]];
+        return [['get', []], ['getForms', []], ['getPages', []], ['getDevices', []], ['getAllFields', []], ['getFields', [1]]];
     }
 
     /**
@@ -377,14 +396,14 @@ class TrackingTest extends IntegrationTestCase
     {
         $submits = $this->startVisit(1, $day);
         $this->trackForm($submits, 'contact', [
-            'rmf_s' => 1, 'rmf_c' => 1, 'rmf_r' => 1, 'rmf_t' => 10000, 'rmf_l' => 'email',
-            'rmf_f' => '[["email",6000,1,1,0,2,2],["name",2000,1,1,0,0,1],["phone",0,0,0,1,0,3]]',
+            'rmf_s' => 1, 'rmf_c' => 1, 'rmf_r' => 1, 'rmf_t' => 10000, 'rmf_w' => 3000, 'rmf_l' => 'email',
+            'rmf_f' => '[["email",6000,1,1,0,2,2,1500],["name",2000,1,1,0,0,1,0],["phone",0,0,0,1,0,3,0]]',
         ]);
         $this->trackForm($submits, 'newsletter');
 
         $this->trackForm($this->startVisit(1, $day), 'contact', [
-            'rmf_s' => 1, 'rmf_t' => 4000, 'rmf_l' => 'email',
-            'rmf_f' => '[["name",3000,1,1,0,0,1],["email",1000,3,3,1,0,2],["phone",0,0,0,1,0,3]]',
+            'rmf_s' => 1, 'rmf_t' => 4000, 'rmf_w' => 5000, 'rmf_l' => 'email',
+            'rmf_f' => '[["name",3000,1,1,0,0,1,0],["email",1000,3,3,1,0,2,500]]',
         ]);
 
         $this->trackForm($this->startVisit(1, $day), 'contact');
@@ -436,7 +455,7 @@ class TrackingTest extends IntegrationTestCase
 
     private function trackForm(\MatomoTracker $tracker, string $name, array $params = []): void
     {
-        $params += ['ca' => 1, 'rmf_n' => $name, 'rmf_s' => 0, 'rmf_c' => 0, 'rmf_r' => 0, 'rmf_t' => 0, 'rmf_l' => '', 'rmf_f' => '[]'];
+        $params += ['ca' => 1, 'rmf_n' => $name, 'rmf_s' => 0, 'rmf_c' => 0, 'rmf_r' => 0, 'rmf_t' => 0, 'rmf_w' => 0, 'rmf_l' => '', 'rmf_f' => '[]'];
         foreach ($params as $key => $value) {
             $tracker->setCustomTrackingParameter($key, $value);
         }

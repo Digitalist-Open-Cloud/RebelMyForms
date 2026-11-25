@@ -30,7 +30,12 @@ class GetForms extends Report
         $this->dimension = new FormName();
         $this->subcategoryId = 'General_Overview';
         $this->metrics = ['nb_form_views', 'nb_form_starts', 'nb_form_submissions', 'nb_form_successes', 'nb_form_resubmits'];
-        $this->processedMetrics = [Ratio::startRate(), Ratio::submitRate(), new Ratio('avg_form_time', 'sum_form_time', 'nb_form_starts', true)];
+        $this->processedMetrics = [
+            Ratio::startRate(),
+            Ratio::submitRate(),
+            new Ratio('avg_form_wait', 'sum_form_wait', 'nb_form_starts', true),
+            new Ratio('avg_form_time', 'sum_form_time', 'nb_form_starts', true),
+        ];
         $this->defaultSortColumn = 'nb_form_views';
         $this->actionToLoadSubTables = 'getFields';
         $this->supportsFlatten = false;
@@ -44,7 +49,7 @@ class GetForms extends Report
 
     public function configureView(ViewDataTable $view)
     {
-        $view->config->columns_to_display = ['label', 'nb_form_views', 'nb_form_starts', 'form_start_rate', 'nb_form_submissions', 'form_submit_rate', 'nb_form_successes', 'nb_form_resubmits', 'avg_form_time'];
+        $view->config->columns_to_display = ['label', 'nb_form_views', 'nb_form_starts', 'form_start_rate', 'nb_form_submissions', 'form_submit_rate', 'nb_form_successes', 'nb_form_resubmits', 'avg_form_wait', 'avg_form_time'];
         $view->config->addTranslation('label', Piwik::translate('RebelMyForms_ColumnForm'));
 
         $view->config->show_all_views_icons = false;

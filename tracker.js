@@ -101,7 +101,7 @@
       if (state.fields.length >= MAX_FIELDS) {
           return null;
       }
-      var field = { name: name, time: 0, changes: 0, focuses: 0, invalid: 0, focusAt: 0, blank: 1, position: 0 };
+      var field = { name: name, time: 0, changes: 0, focuses: 0, invalid: 0, focusAt: 0, blank: 1, position: 0, typed: 0, hesitation: 0 };
       state.fields.push(field);
       return field;
   }
@@ -130,7 +130,7 @@
           }
           for (i = 0; i < state.fields.length; i++) {
               var f = state.fields[i];
-              fields.push([f.name, f.time + (f.focusAt ? now - f.focusAt : 0), f.changes, f.focuses, f.blank, f.invalid, f.position]);
+              fields.push([f.name, f.time + (f.focusAt ? now - f.focusAt : 0), f.changes, f.focuses, f.blank, f.invalid, f.position, f.hesitation]);
           }
       }
 
@@ -139,6 +139,7 @@
           + '&rmf_c=' + (state.submits ? 1 : 0)
           + '&rmf_r=' + Math.max(0, state.submits - 1)
           + '&rmf_t=' + (state.lastAt - state.firstAt)
+          + '&rmf_w=' + (state.started ? state.firstAt - state.seenAt : 0)
           + '&rmf_l=' + encodeURIComponent(state.last)
           + '&rmf_f=' + encodeURIComponent(JSON.stringify(fields));
       if (request === state.sent) {
@@ -158,7 +159,7 @@
       if (forms.length >= MAX_FORMS_PER_PAGE || ignored(form)) {
           return null;
       }
-      var state = { form: form, name: formName(form), started: 0, submits: 0, firstAt: 0, lastAt: 0, fields: [], last: '', sent: '' };
+      var state = { form: form, name: formName(form), seenAt: Date.now(), started: 0, submits: 0, firstAt: 0, lastAt: 0, fields: [], last: '', sent: '' };
       forms.push(state);
       send(state);
       return state;
@@ -201,8 +202,18 @@
       }
   }
 
-  function onChange(event) {
+  // How long a visitor had the focus in a field before they first answered it.
+  function onInput(event) {
       var field = touched(event);
+      if (field && !field.typed) {
+          field.typed = 1;
+          field.hesitation = field.focusAt ? Date.now() - field.focusAt : 0;
+      }
+      return field;
+  }
+
+  function onChange(event) {
+      var field = onInput(event);
       if (field) {
           field.changes++;
       }
@@ -277,6 +288,7 @@
 
   document.addEventListener('focusin', safely(onFocusIn), true);
   document.addEventListener('focusout', safely(onFocusOut), true);
+  document.addEventListener('input', safely(onInput), true);
   document.addEventListener('change', safely(onChange), true);
   document.addEventListener('invalid', safely(onInvalid), true);
   document.addEventListener('submit', safely(onSubmit), true);

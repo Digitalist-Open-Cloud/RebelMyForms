@@ -27,6 +27,10 @@ class Forms extends RecordBuilder
     public const RECORD = 'RebelMyForms_forms';
     public const PAGES = 'RebelMyForms_pages';
     public const DEVICES = 'RebelMyForms_devices';
+    public const FIELDS = 'RebelMyForms_fields';
+
+    // Between the name of a form and the name of a field, in the report of all fields.
+    public const SEPARATOR = ' › ';
     public const NB_VIEWS = 'RebelMyForms_nb_form_views';
     public const NB_STARTS = 'RebelMyForms_nb_form_starts';
     public const NB_SUBMISSIONS = 'RebelMyForms_nb_form_submissions';
@@ -37,6 +41,8 @@ class Forms extends RecordBuilder
     private const FIELD_COLUMNS = [
         'nb_field_interactions' => 0,
         'sum_field_time' => 0,
+        'sum_field_hesitation' => 0,
+        'nb_field_hesitations' => 0,
         'nb_field_changes' => 0,
         'nb_field_refocuses' => 0,
         'nb_field_blank' => 0,
@@ -57,6 +63,7 @@ class Forms extends RecordBuilder
             Record::make(Record::TYPE_BLOB, self::RECORD),
             Record::make(Record::TYPE_BLOB, self::PAGES),
             Record::make(Record::TYPE_BLOB, self::DEVICES),
+            Record::make(Record::TYPE_BLOB, self::FIELDS)->setColumnToSortByBeforeTruncation('nb_field_interactions'),
             Record::make(Record::TYPE_NUMERIC, self::NB_VIEWS),
             Record::make(Record::TYPE_NUMERIC, self::NB_STARTS),
             Record::make(Record::TYPE_NUMERIC, self::NB_SUBMISSIONS),
@@ -91,7 +98,7 @@ class Forms extends RecordBuilder
             "$log.form_name AS label, COUNT(*) AS nb_form_views, SUM($log.started) AS nb_form_starts,
              SUM($log.submitted) AS nb_form_submissions, SUM($log.outcome = " . FormOutcome::SUCCEEDED . ") AS nb_form_successes,
              SUM($log.resubmits > 0) AS nb_form_resubmits,
-             SUM($log.time_spent) AS sum_form_time",
+             SUM($log.time_to_start) AS sum_form_wait, SUM($log.time_spent) AS sum_form_time",
             [$log],
             $where,
             'label',
@@ -148,18 +155,22 @@ class Forms extends RecordBuilder
             $this->addFields($fieldsOfForms[$form['form_name']], $form);
         }
 
+        // The fields under the row of their form, and all of them in one table to follow a field over time.
+        $allFields = new DataTable();
         foreach ($table->getRows() as $row) {
             $fields = $fieldsOfForms[$row->getColumn('label')] ?? [];
             if ($fields) {
                 $subtable = new DataTable();
                 foreach ($fields as $name => $columns) {
                     $subtable->addRowFromSimpleArray(['label' => $name] + $columns);
+                    unset($columns['field_position']);
+                    $allFields->addRowFromSimpleArray(['label' => $row->getColumn('label') . self::SEPARATOR . $name] + $columns);
                 }
                 $row->setSubtable($subtable);
             }
         }
 
-        return [self::RECORD => $table, self::PAGES => $pages, self::DEVICES => $devices] + $totals;
+        return [self::RECORD => $table, self::PAGES => $pages, self::DEVICES => $devices, self::FIELDS => $allFields] + $totals;
     }
 
     /**
@@ -178,6 +189,8 @@ class Forms extends RecordBuilder
             $sum = $sums[$name] ?? self::FIELD_COLUMNS;
             $sum['nb_field_interactions'] += (int) ($focuses > 0 || $changes > 0);
             $sum['sum_field_time'] += $time;
+            $sum['sum_field_hesitation'] += $field[7] ?? 0;
+            $sum['nb_field_hesitations'] += (int) !empty($field[7]);
             $sum['nb_field_changes'] += $changes;
             $sum['nb_field_refocuses'] += max(0, $focuses - 1);
             // A field that is empty says something when the form was sent with it empty.

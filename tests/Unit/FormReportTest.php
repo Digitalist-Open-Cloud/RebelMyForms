@@ -26,7 +26,8 @@ class FormReportTest extends TestCase
             'rmf_c' => '0',
             'rmf_t' => '4200',
             'rmf_l' => 'email',
-            'rmf_f' => '[["name",1200,1,1,0],["email",3000,2,3,1,2,5]]',
+            'rmf_f' => '[["name",1200,1,1,0],["email",3000,2,3,1,2,5,700]]',
+            'rmf_w' => '9000',
             'pv_id' => 'aB12cd',
             'url' => "http://example.org/o'neil/contact?email=a@example.org#form",
         ]);
@@ -38,9 +39,10 @@ class FormReportTest extends TestCase
             'submitted' => 0,
             'outcome' => 1,
             'resubmits' => 0,
+            'time_to_start' => 9000,
             'time_spent' => 4200,
             'last_field' => 'email',
-            'fields' => '[["name",1200,1,1,0,0,0],["email",3000,2,3,1,2,5]]',
+            'fields' => '[["name",1200,1,1,0,0,0,0],["email",3000,2,3,1,2,5,700]]',
             'page_url' => 'http://example.org/o&#039;neil/contact',
         ], $form);
     }
@@ -94,7 +96,7 @@ class FormReportTest extends TestCase
 
         $this->assertSame('', $form['idpageview']);
         $this->assertSame(0, $form['time_spent']);
-        $this->assertSame('[["email",0,0,1000,0,0,0],["phone",0,0,0,0,0,0]]', $form['fields']);
+        $this->assertSame('[["email",0,0,1000,0,0,0,0],["phone",0,0,0,0,0,0,0]]', $form['fields']);
         $this->assertSame('[]', FormReport::fromRequestParams(['rmf_n' => 'contact', 'rmf_s' => 1, 'rmf_f' => '{broken'])['fields']);
     }
 

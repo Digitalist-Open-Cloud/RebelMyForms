@@ -92,8 +92,11 @@ Websites > Manage.
   started when a visitor uses one of its fields. The start rate is the share of the views that
   were started, and the submit rate the share of the starts that were submitted. "Submitted
   again" counts the forms that were submitted more than once in a page view, which usually
-  means the website refused the first attempt. Click a form to see its fields.
+  means the website refused the first attempt. "Avg. time to start" is how long the form was
+  on the page before a visitor first used it. Click a form to see its fields.
 - **Forms by page**: the pages the forms are on.
+- **Fields of all forms**: every field of every form in one table, with the fields where most
+  visitors gave up first. Row evolution on a row follows that field over time.
 - **Forms by device type**: how the forms do on desktops, smartphones and other devices.
 
 The fields of a form, in the order they have in the form:
@@ -103,6 +106,7 @@ The fields of a form, in the order they have in the form:
 | Place | The place of the field in the form, from the top |
 | Used by | How often a visitor put the focus in the field or changed it |
 | Avg. time in field | How long the field had the focus |
+| Avg. hesitation | How long the field had the focus before the visitor first typed or chose something |
 | Changes | How often its content was changed. Many more than "Used by" means corrections |
 | Returns | How often a visitor came back to the field |
 | Left empty | How often it was empty when the form was submitted |
@@ -134,6 +138,7 @@ For users with view access to the website:
 - `RebelMyForms.getForms`
 - `RebelMyForms.getPages`
 - `RebelMyForms.getDevices`
+- `RebelMyForms.getAllFields`
 - `RebelMyForms.getFields`, with `idSubtable` from a row of `getForms`
 
 ## Privacy

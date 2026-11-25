@@ -53,8 +53,8 @@ class API extends \Piwik\Plugin\API
     }
 
     /**
-     * The forms of a period, with the average time from the first field a visitor used to the
-     * last, in seconds.
+     * The forms of a period, with the average time before a visitor started and from the first
+     * field they used to the last, in seconds.
      *
      * @param int|string $idSite
      * @param string $period
@@ -67,6 +67,23 @@ class API extends \Piwik\Plugin\API
         Piwik::checkUserHasViewAccess($idSite);
 
         return Archive::createDataTableFromArchive(Forms::RECORD, $idSite, $period, $date, $segment);
+    }
+
+    /**
+     * The fields of all forms of a period, each named by its form and its own name. A field can be
+     * followed over time here.
+     *
+     * @param int|string $idSite
+     * @param string $period
+     * @param string $date
+     * @param string|false $segment
+     * @return DataTable|DataTable\Map
+     */
+    public function getAllFields($idSite, $period, $date, $segment = false)
+    {
+        Piwik::checkUserHasViewAccess($idSite);
+
+        return Archive::createDataTableFromArchive(Forms::FIELDS, $idSite, $period, $date, $segment);
     }
 
     /**

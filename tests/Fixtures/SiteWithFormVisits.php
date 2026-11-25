@@ -26,12 +26,12 @@ class SiteWithFormVisits extends Fixture
         }
 
         $this->trackForm(1, [
-            'rmf_s' => 1, 'rmf_c' => 1, 'rmf_t' => 10000, 'rmf_l' => 'email',
-            'rmf_f' => '[["email",6000,1,1,0,2,2],["name",2000,1,1,0,0,1],["phone",0,0,0,1,0,3]]',
+            'rmf_s' => 1, 'rmf_c' => 1, 'rmf_t' => 10000, 'rmf_w' => 3000, 'rmf_l' => 'email',
+            'rmf_f' => '[["email",6000,1,1,0,2,2,1500],["name",2000,1,1,0,0,1,0],["phone",0,0,0,1,0,3,0]]',
         ]);
         $this->trackForm(2, [
-            'rmf_s' => 1, 'rmf_t' => 4000, 'rmf_l' => 'email',
-            'rmf_f' => '[["name",3000,1,1,0,0,1],["email",1000,3,3,1,0,2],["phone",0,0,0,1,0,3]]',
+            'rmf_s' => 1, 'rmf_t' => 4000, 'rmf_w' => 5000, 'rmf_l' => 'email',
+            'rmf_f' => '[["name",3000,1,1,0,0,1,0],["email",1000,3,3,1,0,2,500],["phone",0,0,0,1,0,3,0]]',
         ]);
         $this->trackForm(3, []);
     }
@@ -51,7 +51,7 @@ class SiteWithFormVisits extends Fixture
         self::checkResponse($tracker->doTrackPageView('Contact'));
 
         $tracker->setForceVisitDateTime(self::DAY . ' 10:01:00');
-        $params += ['ca' => 1, 'rmf_n' => 'contact', 'rmf_s' => 0, 'rmf_c' => 0, 'rmf_r' => 0, 'rmf_t' => 0, 'rmf_l' => '', 'rmf_f' => '[]'];
+        $params += ['ca' => 1, 'rmf_n' => 'contact', 'rmf_s' => 0, 'rmf_c' => 0, 'rmf_r' => 0, 'rmf_t' => 0, 'rmf_w' => 0, 'rmf_l' => '', 'rmf_f' => '[]'];
         foreach ($params as $key => $value) {
             $tracker->setCustomTrackingParameter($key, $value);
         }

@@ -16,6 +16,8 @@
 - `RebelMyForms.success()` for the website to tell that a form went through.
 - An element with `data-rebel-form` is tracked as a form.
 - The report "Forms by device type".
+- How long visitors wait before they start a form, and how long they hesitate in a field before they answer.
+- The report "Fields of all forms", where a field can be followed over time.
 - The segment "Form outcome": seen, abandoned, submitted or succeeded.
 - The segment "Form", to narrow any report to the visits that saw a form.
 - The attributes `data-rebel-form` and `data-rebel-field` to name a form or a field, and `data-rebel-ignore` to leave one out.
