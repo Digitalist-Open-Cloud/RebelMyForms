@@ -22,7 +22,7 @@ describe('RebelMyForms', function () {
         await page.waitForNetworkIdle();
 
         const rows = await cellsOfRows(`${forms} tr.subDataTable`);
-        expect(rows).to.deep.equal([['contact', '3', '2', '66.67%', '1', '50%', '-', '7s']]);
+        expect(rows).to.deep.equal([['contact', '3', '2', '66.67%', '1', '50%', '-', '-', '7s']]);
     });
 
     it('should show the fields of a form when it is clicked', async function () {
@@ -31,15 +31,21 @@ describe('RebelMyForms', function () {
         await page.waitForNetworkIdle();
 
         const rows = await cellsOfRows(`${forms} .cellSubDataTable tbody tr`);
-        const email = rows.find((row) => row[0] === 'email');
-        expect(rows.map((row) => row[0])).to.have.members(['name', 'email', 'phone']);
-        // Used by, time, changes, returns, left empty, refused, drop-offs, drop-off rate.
-        expect(email.slice(1)).to.deep.equal(['2', '3.5s', '4', '2', '-', '2', '1', '50%']);
+        // In the order of the form.
+        expect(rows.map((row) => row[0])).to.deep.equal(['name', 'email', 'phone']);
+        // Place, used by, time, changes, returns, left empty, refused, drop-offs, drop-off rate.
+        expect(rows[1].slice(1)).to.deep.equal(['2', '2', '3.5s', '4', '2', '-', '2', '1', '50%']);
     });
 
     it('should show the pages the forms are on', async function () {
         const rows = await cellsOfRows('.dataTable[data-report="RebelMyForms.getPages"] tbody tr');
         expect(rows.map((row) => row.slice(0, 2))).to.deep.equal([['http://example.org/contact', '3']]);
+    });
+
+    it('should show the kinds of device the forms were seen on', async function () {
+        const rows = await cellsOfRows('.dataTable[data-report="RebelMyForms.getDevices"] tbody tr');
+        expect(rows.length).to.equal(1);
+        expect(rows[0][1]).to.equal('3');
     });
 
     it('should show the documentation', async function () {

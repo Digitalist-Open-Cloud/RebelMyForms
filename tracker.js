@@ -38,8 +38,13 @@
           || element.type || 'unnamed').substring(0, MAX_FIELD_NAME);
   }
 
+  // The form of a field, or the element that is marked as a form around it.
+  function formOf(element) {
+      return element.form || (element.closest && element.closest('[data-rebel-form]')) || null;
+  }
+
   function isField(element) {
-      return !!element && !!element.form && /^(INPUT|SELECT|TEXTAREA)$/.test(element.tagName)
+      return !!element && /^(INPUT|SELECT|TEXTAREA)$/.test(element.tagName) && !!formOf(element)
           && !NOT_A_FIELD.test(element.type) && !ignored(element);
   }
 
@@ -78,6 +83,13 @@
       }
   }
 
+  function queue(request) {
+      waiting.push(request);
+      if (waiting.length === 1) {
+          flush();
+      }
+  }
+
   // The fields of a radio group share a name and are one field.
   function fieldOf(state, element) {
       var name = fieldName(element);
@@ -89,7 +101,7 @@
       if (state.fields.length >= MAX_FIELDS) {
           return null;
       }
-      var field = { name: name, time: 0, changes: 0, focuses: 0, invalid: 0, focusAt: 0, blank: 1 };
+      var field = { name: name, time: 0, changes: 0, focuses: 0, invalid: 0, focusAt: 0, blank: 1, position: 0 };
       state.fields.push(field);
       return field;
   }
@@ -101,19 +113,24 @@
       var i;
 
       if (state.started) {
+          var position = 0;
           for (i = 0; i < state.fields.length; i++) {
               state.fields[i].blank = 1;
+              state.fields[i].position = 0;
           }
-          var elements = state.form.elements || [];
+          var elements = state.form.elements || state.form.querySelectorAll('input,select,textarea');
           for (i = 0; i < elements.length; i++) {
               var field = isField(elements[i]) && fieldOf(state, elements[i]);
+              if (field && !field.position) {
+                  field.position = ++position;
+              }
               if (field && !isBlank(elements[i])) {
                   field.blank = 0;
               }
           }
           for (i = 0; i < state.fields.length; i++) {
               var f = state.fields[i];
-              fields.push([f.name, f.time + (f.focusAt ? now - f.focusAt : 0), f.changes, f.focuses, f.blank, f.invalid]);
+              fields.push([f.name, f.time + (f.focusAt ? now - f.focusAt : 0), f.changes, f.focuses, f.blank, f.invalid, f.position]);
           }
       }
 
@@ -128,11 +145,7 @@
           return;
       }
       state.sent = request;
-
-      waiting.push(request);
-      if (waiting.length === 1) {
-          flush();
-      }
+      queue(request);
   }
 
   // A form is counted as seen the first time it is met here.
@@ -162,7 +175,7 @@
   // The field an event is about, with its form marked as started.
   function touched(event) {
       var element = event.target;
-      var state = isField(element) ? stateOf(element.form) : null;
+      var state = isField(element) ? stateOf(formOf(element)) : null;
       var field = state && fieldOf(state, element);
       if (!field) {
           return null;
@@ -228,9 +241,24 @@
   }
 
   function findForms() {
-      var found = document.querySelectorAll('form');
+      var found = document.querySelectorAll('form,[data-rebel-form]');
       for (var i = 0; i < found.length; i++) {
           stateOf(found[i]);
+      }
+  }
+
+  // For the website to call when a form went through: with the form, or with its name on the
+  // page that follows.
+  function success(form) {
+      var state = form && typeof form !== 'string' ? stateOf(form) : null;
+      var name = state ? state.name : String(form || '').substring(0, MAX_FORM_NAME);
+      if (state) {
+          start(state, Date.now());
+          state.submits = state.submits || 1;
+          send(state);
+      }
+      if (name) {
+          queue('ca=1&rmf_n=' + encodeURIComponent(name) + '&rmf_ok=1');
       }
   }
 
@@ -244,6 +272,8 @@
           }
       };
   }
+
+  window.RebelMyForms = { success: safely(success) };
 
   document.addEventListener('focusin', safely(onFocusIn), true);
   document.addEventListener('focusout', safely(onFocusOut), true);

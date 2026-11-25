@@ -44,16 +44,24 @@ class ActionForm extends Action
 
     public function record(Visitor $visitor, $idReferrerActionUrl, $idReferrerActionName)
     {
-        $form = FormReport::fromRequestParams($this->request->getParams());
+        $params = $this->request->getParams();
         $idSite = (int) $this->request->getIdSite();
         $idVisit = $visitor->getVisitorColumn('idvisit');
         $log = new LogForm();
 
-        if (
-            $form === null
-            || !(new MeasurableSettings($idSite))->enabled->getValue()
-            || $log->countForVisit($idVisit) >= self::MAX_FORMS_PER_VISIT
-        ) {
+        if (!(new MeasurableSettings($idSite))->enabled->getValue()) {
+            return;
+        }
+
+        $succeeded = FormReport::succeededForm($params);
+        if ($succeeded !== null) {
+            $log->markSucceeded($idVisit, $succeeded);
+
+            return;
+        }
+
+        $form = FormReport::fromRequestParams($params);
+        if ($form === null || $log->countForVisit($idVisit) >= self::MAX_FORMS_PER_VISIT) {
             return;
         }
 

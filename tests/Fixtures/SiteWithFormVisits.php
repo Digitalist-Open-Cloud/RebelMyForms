@@ -27,11 +27,11 @@ class SiteWithFormVisits extends Fixture
 
         $this->trackForm(1, [
             'rmf_s' => 1, 'rmf_c' => 1, 'rmf_t' => 10000, 'rmf_l' => 'email',
-            'rmf_f' => '[["name",2000,1,1,0,0],["email",6000,1,1,0,2],["phone",0,0,0,1,0]]',
+            'rmf_f' => '[["email",6000,1,1,0,2,2],["name",2000,1,1,0,0,1],["phone",0,0,0,1,0,3]]',
         ]);
         $this->trackForm(2, [
             'rmf_s' => 1, 'rmf_t' => 4000, 'rmf_l' => 'email',
-            'rmf_f' => '[["name",3000,1,1,0,0],["email",1000,3,3,1,0],["phone",0,0,0,1,0]]',
+            'rmf_f' => '[["name",3000,1,1,0,0,1],["email",1000,3,3,1,0,2],["phone",0,0,0,1,0,3]]',
         ]);
         $this->trackForm(3, []);
     }

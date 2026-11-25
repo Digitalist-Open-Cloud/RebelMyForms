@@ -52,6 +52,32 @@ To leave a form or a field out, add `data-rebel-ignore` to it:
 Hidden fields and buttons are not fields. A form counts as submitted when the browser sends its
 `submit` event, also when the website then refuses what was sent.
 
+## Telling when a form went through
+
+The browser cannot know whether the website accepted a form. Let the website say so, and the
+form counts as "Went through". With the form element when the page stays:
+
+```js
+window.RebelMyForms && RebelMyForms.success(document.getElementById('contact'));
+```
+
+Or with the name of the form, on the page that follows:
+
+```js
+window.RebelMyForms && RebelMyForms.success('contact');
+```
+
+## Forms that are not a form element
+
+An element with `data-rebel-form` is tracked as a form, with the fields inside it. Nothing is
+submitted by the browser, so call `RebelMyForms.success()` when it is done:
+
+```html
+<div data-rebel-form="Checkout">
+  <input name="card">
+</div>
+```
+
 To stop tracking the forms of a website, turn off **Track forms** under Administration >
 Websites > Manage.
 
@@ -68,11 +94,13 @@ Websites > Manage.
   again" counts the forms that were submitted more than once in a page view, which usually
   means the website refused the first attempt. Click a form to see its fields.
 - **Forms by page**: the pages the forms are on.
+- **Forms by device type**: how the forms do on desktops, smartphones and other devices.
 
-The fields of a form:
+The fields of a form, in the order they have in the form:
 
 | Column | What it tells |
 |---|---|
+| Place | The place of the field in the form, from the top |
 | Used by | How often a visitor put the focus in the field or changed it |
 | Avg. time in field | How long the field had the focus |
 | Changes | How often its content was changed. Many more than "Used by" means corrections |
@@ -83,7 +111,12 @@ The fields of a form:
 | Drop-off rate | Drop-offs as a share of "Used by" |
 
 The reports are built when Matomo processes its reports, and work with segments and row
-evolution. The segment "Form" narrows any other report to the visits that saw a form.
+evolution.
+
+Two segments narrow any other report of Matomo: **Form**, to the visits that saw a form, and
+**Form outcome**, to the visits that got so far with a form: `seen`, `abandoned` (started and
+not submitted), `submitted` or `succeeded`. `formOutcome==abandoned` with the report of device
+types shows who gives up.
 
 The visit log and the visitor profile list the forms a visitor started, with whether they
 submitted them or the field they left at.
@@ -100,6 +133,7 @@ For users with view access to the website:
 - `RebelMyForms.get`
 - `RebelMyForms.getForms`
 - `RebelMyForms.getPages`
+- `RebelMyForms.getDevices`
 - `RebelMyForms.getFields`, with `idSubtable` from a row of `getForms`
 
 ## Privacy

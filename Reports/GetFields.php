@@ -24,12 +24,14 @@ class GetFields extends Report
         $this->name = Piwik::translate('RebelMyForms_Fields');
         $this->documentation = Piwik::translate('RebelMyForms_FieldsDocumentation');
         $this->categoryId = FormsCategory::ID;
-        $this->metrics = ['nb_field_interactions', 'nb_field_changes', 'nb_field_refocuses', 'nb_field_blank', 'nb_field_invalid', 'nb_field_dropoffs'];
+        $this->metrics = ['field_position', 'nb_field_interactions', 'nb_field_changes', 'nb_field_refocuses', 'nb_field_blank', 'nb_field_invalid', 'nb_field_dropoffs'];
         $this->processedMetrics = [
             new Ratio('avg_field_time', 'sum_field_time', 'nb_field_interactions', true),
             new Ratio('field_dropoff_rate', 'nb_field_dropoffs', 'nb_field_interactions'),
         ];
-        $this->defaultSortColumn = 'nb_field_interactions';
+        // From the top of the form to its end.
+        $this->defaultSortColumn = 'field_position';
+        $this->defaultSortOrderDesc = false;
         $this->isSubtableReport = true;
     }
 
@@ -37,6 +39,7 @@ class GetFields extends Report
     {
         $view->config->columns_to_display = [
             'label',
+            'field_position',
             'nb_field_interactions',
             'avg_field_time',
             'nb_field_changes',
@@ -49,6 +52,9 @@ class GetFields extends Report
         $view->config->addTranslation('label', Piwik::translate('RebelMyForms_ColumnField'));
         // Matomo only finds the texts of a report that is not under another.
         $view->config->metrics_documentation = $this->getMetricsDocumentation();
+
+        $view->requestConfig->filter_sort_column = 'field_position';
+        $view->requestConfig->filter_sort_order = 'asc';
 
         $view->config->show_all_views_icons = false;
         $view->config->show_exclude_low_population = false;

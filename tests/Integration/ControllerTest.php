@@ -39,6 +39,7 @@ class ControllerTest extends IntegrationTestCase
         $this->assertStringContainsString('up to 20 forms on a page and 50 fields in a form', $page);
         $this->assertStringContainsString('A visit stores at most 200 forms.', $page);
         $this->assertStringContainsString('data-rebel-form="Newsletter signup"', $page);
+        $this->assertStringContainsString("RebelMyForms.success('contact');", $page);
         // No text of the page is left untranslated.
         $this->assertSame(0, preg_match('/RebelMyForms_Doc[A-Z]/', $page));
     }

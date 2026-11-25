@@ -88,7 +88,7 @@ class TrackingTest extends IntegrationTestCase
         $this->assertEquals(1, $forms[0]['started']);
         $this->assertEquals(1, $forms[0]['submitted']);
         $this->assertEquals(5000, $forms[0]['time_spent']);
-        $this->assertSame('[["name",2000,1,1,0,0],["email",3000,1,1,0,0]]', $forms[0]['fields']);
+        $this->assertSame('[["name",2000,1,1,0,0,0],["email",3000,1,1,0,0,0]]', $forms[0]['fields']);
         $this->assertSame('http://example.org/contact', $forms[0]['page_url']);
     }
 
@@ -150,7 +150,9 @@ class TrackingTest extends IntegrationTestCase
         $contact = $this->report('getForms')->getRowFromLabel('contact');
         $fields = $this->report('getFields', 'day', ['idSubtable' => $contact->getIdSubDataTable()]);
 
-        $this->assertEqualsCanonicalizing(['name', 'email', 'phone'], $fields->getColumn('label'));
+        // In the order of the form, whatever order they were used in.
+        $this->assertSame(['name', 'email', 'phone'], $fields->getColumn('label'));
+        $this->assertEquals([1, 2, 3], $fields->getColumn('field_position'));
 
         $name = $fields->getRowFromLabel('name');
         $this->assertEquals(2, $name->getColumn('nb_field_interactions'));
@@ -169,6 +171,72 @@ class TrackingTest extends IntegrationTestCase
         $phone = $fields->getRowFromLabel('phone');
         $this->assertEquals(0, $phone->getColumn('nb_field_interactions'));
         $this->assertEquals(1, $phone->getColumn('nb_field_blank'));
+    }
+
+    public function testTheWebsiteCanTellThatAFormWentThrough()
+    {
+        $tracker = $this->startVisit(1);
+        $this->trackForm($tracker, 'contact', ['rmf_s' => 1, 'rmf_c' => 1]);
+        $this->trackForm($tracker, 'newsletter');
+        // On the page that follows, by name. A form the visit never saw is not made up.
+        $tracker->setPageviewId('thanks');
+        $this->trackSuccess($tracker, 'contact');
+        $this->trackSuccess($tracker, 'unknown');
+        $this->trackForm($this->startVisit(1), 'contact', ['rmf_s' => 1, 'rmf_c' => 1]);
+
+        $this->assertEquals([3, 0, 2], array_column($this->getLog(), 'outcome'));
+        $contact = $this->report('getForms')->getRowFromLabel('contact');
+        $this->assertEquals(2, $contact->getColumn('nb_form_views'));
+        $this->assertEquals(2, $contact->getColumn('nb_form_submissions'));
+        $this->assertEquals(1, $contact->getColumn('nb_form_successes'));
+        $this->assertEquals(1, $this->report('get')->getFirstRow()->getColumn('nb_form_successes'));
+    }
+
+    public function testAFormThatIsNotSentByTheBrowserIsSubmittedWhenItWentThrough()
+    {
+        $tracker = $this->startVisit(1);
+        $this->trackForm($tracker, 'checkout', ['rmf_s' => 1]);
+        $this->trackSuccess($tracker, 'checkout');
+
+        $form = $this->getLog()[0];
+        $this->assertEquals([1, 1, 3], [$form['started'], $form['submitted'], $form['outcome']]);
+    }
+
+    public function testOtherReportsCanBeNarrowedByHowFarAVisitorGotWithAForm()
+    {
+        $this->trackFormsOfThreeVisits();
+        $this->trackSuccess($this->startVisitWithForm('signup', ['rmf_s' => 1, 'rmf_c' => 1]), 'signup');
+
+        $visits = function (string $outcome) {
+            return VisitsSummaryApi::getInstance()->get(1, 'day', self::DAY, 'formOutcome==' . $outcome)->getFirstRow()->getColumn('nb_visits');
+        };
+
+        // The visit that submitted "contact" also only saw "newsletter".
+        $this->assertEquals(2, $visits('seen'));
+        $this->assertEquals(1, $visits('abandoned'));
+        $this->assertEquals(1, $visits('submitted'));
+        $this->assertEquals(1, $visits('succeeded'));
+        $this->assertEquals(0, $visits('nonsense'));
+    }
+
+    public function testFormsAreReportedByTheKindOfDevice()
+    {
+        $phone = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1';
+        $desktop = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0';
+        $this->startVisitWithForm('contact', ['rmf_s' => 1, 'rmf_c' => 1], $desktop);
+        $this->startVisitWithForm('contact', ['rmf_s' => 1], $phone);
+        $this->startVisitWithForm('contact', [], $phone);
+
+        $devices = $this->report('getDevices');
+
+        $this->assertSame(['Smartphone', 'Desktop'], $devices->getColumn('label'));
+        $this->assertEquals([2, 1], $devices->getColumn('nb_form_views'));
+        $this->assertEquals([0.5, 1], $devices->getColumn('form_start_rate'));
+        $this->assertEquals([0, 1], $devices->getColumn('form_submit_rate'));
+        $this->assertSame('deviceType==smartphone', $devices->getFirstRow()->getMetadata('segment'));
+
+        $evolution = ApiApi::getInstance()->getRowEvolution(1, 'day', '2024-03-04,' . self::DAY, 'RebelMyForms', 'getDevices', 'Smartphone');
+        $this->assertEquals(2, $evolution['reportData']->getTable(self::DAY)->getFirstRow()->getColumn('nb_form_views'));
     }
 
     public function testFormsAreReportedByThePageTheyAreOn()
@@ -298,7 +366,7 @@ class TrackingTest extends IntegrationTestCase
 
     public function getReports(): array
     {
-        return [['get', []], ['getForms', []], ['getPages', []], ['getFields', [1]]];
+        return [['get', []], ['getForms', []], ['getPages', []], ['getDevices', []], ['getFields', [1]]];
     }
 
     /**
@@ -310,13 +378,13 @@ class TrackingTest extends IntegrationTestCase
         $submits = $this->startVisit(1, $day);
         $this->trackForm($submits, 'contact', [
             'rmf_s' => 1, 'rmf_c' => 1, 'rmf_r' => 1, 'rmf_t' => 10000, 'rmf_l' => 'email',
-            'rmf_f' => '[["name",2000,1,1,0],["email",6000,1,1,0,2],["phone",0,0,0,1]]',
+            'rmf_f' => '[["email",6000,1,1,0,2,2],["name",2000,1,1,0,0,1],["phone",0,0,0,1,0,3]]',
         ]);
         $this->trackForm($submits, 'newsletter');
 
         $this->trackForm($this->startVisit(1, $day), 'contact', [
             'rmf_s' => 1, 'rmf_t' => 4000, 'rmf_l' => 'email',
-            'rmf_f' => '[["name",3000,1,1,0],["email",1000,3,3,1],["phone",0,0,0,1]]',
+            'rmf_f' => '[["name",3000,1,1,0,0,1],["email",1000,3,3,1,0,2],["phone",0,0,0,1,0,3]]',
         ]);
 
         $this->trackForm($this->startVisit(1, $day), 'contact');
@@ -330,13 +398,34 @@ class TrackingTest extends IntegrationTestCase
         return Request::processRequest('RebelMyForms.' . $method, ['idSite' => 1, 'period' => $period, 'date' => self::DAY, 'format_metrics' => 0] + $extra);
     }
 
-    private function startVisit(int $idSite, string $day = self::DAY): \MatomoTracker
+    private function startVisitWithForm(string $name, array $params, string $userAgent = ''): \MatomoTracker
+    {
+        $tracker = $this->startVisit(1, self::DAY, $userAgent);
+        $this->trackForm($tracker, $name, $params);
+
+        return $tracker;
+    }
+
+    private function trackSuccess(\MatomoTracker $tracker, string $name): void
+    {
+        $tracker->clearCustomTrackingParameters();
+        $tracker->setCustomTrackingParameter('ca', 1);
+        $tracker->setCustomTrackingParameter('rmf_n', $name);
+        $tracker->setCustomTrackingParameter('rmf_ok', 1);
+        Fixture::checkResponse($tracker->doTrackPageView('Contact'));
+        $tracker->clearCustomTrackingParameters();
+    }
+
+    private function startVisit(int $idSite, string $day = self::DAY, string $userAgent = ''): \MatomoTracker
     {
         $tracker = Fixture::getTracker($idSite, $day . ' 10:00:00', true, true);
         $tracker->setTokenAuth(Fixture::getTokenAuth());
         $tracker->setNewVisitorId();
         // Matomo takes requests from one address for one visit.
         $tracker->setIp('10.0.0.' . (1 + $this->visits++));
+        if ($userAgent !== '') {
+            $tracker->setUserAgent($userAgent);
+        }
         $tracker->setUrl('http://example.org/contact');
         $tracker->setPageviewId('first');
         Fixture::checkResponse($tracker->doTrackPageView('Contact'));
