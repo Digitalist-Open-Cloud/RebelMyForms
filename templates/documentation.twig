@@ -1,0 +1,54 @@
+{% extends 'admin.twig' %}
+
+{% set title %}{{ 'RebelMyForms_Documentation'|translate }}{% endset %}
+
+{% block content %}
+<div class="card rebelMyFormsDocumentation">
+    <div class="card-content">
+        <h2 class="card-title">{{ 'RebelMyForms_Documentation'|translate }}</h2>
+        <p>{{ 'RebelMyForms_DocIntro'|translate }}</p>
+
+        <h3>{{ 'RebelMyForms_DocStartTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocStart'|translate }}</p>
+        <pre>./console custom-matomo-js:update</pre>
+
+        <h3>{{ 'RebelMyForms_DocFormsTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocForms'|translate(maxPerPage, maxFields) }}</p>
+
+        <h3>{{ 'RebelMyForms_DocNamesTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocNames'|translate }}</p>
+        <pre>&lt;form data-rebel-form="Newsletter signup"&gt;
+  &lt;input type="email" name="email" data-rebel-field="E-mail"&gt;
+&lt;/form&gt;</pre>
+
+        <h3>{{ 'RebelMyForms_DocIgnoreTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocIgnore'|translate }}</p>
+        <pre>&lt;form id="login" data-rebel-ignore&gt;</pre>
+
+        <h3>{{ 'RebelMyForms_DocReportsTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocReports'|translate }}</p>
+
+        <h3>{{ 'RebelMyForms_DocFieldsTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocFields'|translate }}</p>
+
+        <h3>{{ 'RebelMyForms_DocSubmittedTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocSubmitted'|translate }}</p>
+
+        <h3>{{ 'RebelMyForms_DocSegmentsTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocSegments'|translate }}</p>
+        <pre>formName!=              visits that saw a form
+formName==contact       visits that saw the form "contact"
+formName=@signup        visits that saw a form whose name contains "signup"</pre>
+
+        <h3>{{ 'RebelMyForms_DocStoredTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocStored'|translate(maxPerVisit) }}</p>
+
+        <h3>{{ 'RebelMyForms_DocApiTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocApi'|translate }}</p>
+        <pre>RebelMyForms.get
+RebelMyForms.getForms
+RebelMyForms.getFields
+RebelMyForms.getPages</pre>
+    </div>
+</div>
+{% endblock %}

@@ -15,10 +15,12 @@ use Piwik\DataTable;
 use Piwik\Db;
 use Piwik\NoAccessException;
 use Piwik\Plugins\API\API as ApiApi;
+use Piwik\Plugins\Live\API as LiveApi;
 use Piwik\Plugins\PrivacyManager\Model\DataSubjects;
 use Piwik\Plugins\RebelMyForms\Actions\ActionForm;
 use Piwik\Plugins\RebelMyForms\API as FormsApi;
 use Piwik\Plugins\RebelMyForms\Dao\LogForm;
+use Piwik\Plugins\RebelMyForms\MeasurableSettings;
 use Piwik\Plugins\VisitsSummary\API as VisitsSummaryApi;
 use Piwik\Container\StaticContainer;
 use Piwik\Tests\Framework\Fixture;
@@ -86,7 +88,8 @@ class TrackingTest extends IntegrationTestCase
         $this->assertEquals(1, $forms[0]['started']);
         $this->assertEquals(1, $forms[0]['submitted']);
         $this->assertEquals(5000, $forms[0]['time_spent']);
-        $this->assertSame('[["name",2000,1,1,0],["email",3000,1,1,0]]', $forms[0]['fields']);
+        $this->assertSame('[["name",2000,1,1,0,0],["email",3000,1,1,0,0]]', $forms[0]['fields']);
+        $this->assertSame('http://example.org/contact', $forms[0]['page_url']);
     }
 
     public function testAFormCountsAgainInAnotherPageView()
@@ -128,6 +131,7 @@ class TrackingTest extends IntegrationTestCase
         $this->assertEquals(1, $contact->getColumn('nb_form_submissions'));
         $this->assertEquals(0.6667, $contact->getColumn('form_start_rate'));
         $this->assertEquals(0.5, $contact->getColumn('form_submit_rate'));
+        $this->assertEquals(1, $contact->getColumn('nb_form_resubmits'));
         $this->assertFalse($contact->getColumn('sum_form_time'));
         // (10 + 4 seconds) / 2 starts
         $this->assertEquals(7, $contact->getColumn('avg_form_time'));
@@ -158,12 +162,63 @@ class TrackingTest extends IntegrationTestCase
         $this->assertEquals(4, $email->getColumn('nb_field_changes'));
         $this->assertEquals(2, $email->getColumn('nb_field_refocuses'));
         $this->assertEquals(1, $email->getColumn('nb_field_dropoffs'));
+        $this->assertEquals(2, $email->getColumn('nb_field_invalid'));
         $this->assertEquals(0.5, $email->getColumn('field_dropoff_rate'));
 
         // Nobody used it, and it was empty in the one form that was submitted.
         $phone = $fields->getRowFromLabel('phone');
         $this->assertEquals(0, $phone->getColumn('nb_field_interactions'));
         $this->assertEquals(1, $phone->getColumn('nb_field_blank'));
+    }
+
+    public function testFormsAreReportedByThePageTheyAreOn()
+    {
+        $this->trackFormsOfThreeVisits();
+        $tracker = $this->startVisit(1);
+        $tracker->setUrl('http://example.org/signup?ref=mail');
+        $this->trackForm($tracker, 'signup', ['rmf_s' => 1]);
+
+        $pages = $this->report('getPages');
+
+        $this->assertSame(['http://example.org/contact', 'http://example.org/signup'], $pages->getColumn('label'));
+        $this->assertEquals([4, 1], $pages->getColumn('nb_form_views'));
+        $this->assertEquals([0.5, 1], $pages->getColumn('form_start_rate'));
+        $this->assertSame('http://example.org/signup', $pages->getLastRow()->getMetadata('url'));
+
+        $evolution = ApiApi::getInstance()->getRowEvolution(1, 'day', '2024-03-04,' . self::DAY, 'RebelMyForms', 'getPages', 'http://example.org/signup');
+        $this->assertEquals(1, $evolution['reportData']->getTable(self::DAY)->getFirstRow()->getColumn('nb_form_views'));
+    }
+
+    public function testTheVisitLogShowsTheFormsAVisitorStarted()
+    {
+        $this->trackFormsOfThreeVisits();
+
+        $visits = LiveApi::getInstance()->getLastVisitsDetails(1, 'day', self::DAY);
+        $visits->applyQueuedFilters();
+        $forms = [];
+        foreach ($visits->getRows() as $visit) {
+            foreach ($visit->getColumn('actionDetails') as $action) {
+                if ($action['type'] === 'rebelForm') {
+                    $forms[] = $action['formName'] . ': ' . $action['formOutcome'];
+                }
+            }
+        }
+
+        $this->assertEqualsCanonicalizing(['contact: submitted', 'contact: not submitted, left at email'], $forms);
+    }
+
+    public function testNothingIsStoredForAWebsiteThatHasFormTrackingTurnedOff()
+    {
+        $settings = new MeasurableSettings(1);
+        $settings->enabled->setValue(false);
+        $settings->save();
+
+        $this->trackForm($this->startVisit(1), 'contact');
+        $this->trackForm($this->startVisit(2), 'contact');
+
+        $forms = $this->getLog();
+        $this->assertCount(1, $forms);
+        $this->assertEquals(2, $forms[0]['idsite']);
     }
 
     public function testFormsAreSummedOverSeveralDays()
@@ -243,7 +298,7 @@ class TrackingTest extends IntegrationTestCase
 
     public function getReports(): array
     {
-        return [['get', []], ['getForms', []], ['getFields', [1]]];
+        return [['get', []], ['getForms', []], ['getPages', []], ['getFields', [1]]];
     }
 
     /**
@@ -254,8 +309,8 @@ class TrackingTest extends IntegrationTestCase
     {
         $submits = $this->startVisit(1, $day);
         $this->trackForm($submits, 'contact', [
-            'rmf_s' => 1, 'rmf_c' => 1, 'rmf_t' => 10000, 'rmf_l' => 'email',
-            'rmf_f' => '[["name",2000,1,1,0],["email",6000,1,1,0],["phone",0,0,0,1]]',
+            'rmf_s' => 1, 'rmf_c' => 1, 'rmf_r' => 1, 'rmf_t' => 10000, 'rmf_l' => 'email',
+            'rmf_f' => '[["name",2000,1,1,0],["email",6000,1,1,0,2],["phone",0,0,0,1]]',
         ]);
         $this->trackForm($submits, 'newsletter');
 
@@ -292,7 +347,7 @@ class TrackingTest extends IntegrationTestCase
 
     private function trackForm(\MatomoTracker $tracker, string $name, array $params = []): void
     {
-        $params += ['ca' => 1, 'rmf_n' => $name, 'rmf_s' => 0, 'rmf_c' => 0, 'rmf_t' => 0, 'rmf_l' => '', 'rmf_f' => '[]'];
+        $params += ['ca' => 1, 'rmf_n' => $name, 'rmf_s' => 0, 'rmf_c' => 0, 'rmf_r' => 0, 'rmf_t' => 0, 'rmf_l' => '', 'rmf_f' => '[]'];
         foreach ($params as $key => $value) {
             $tracker->setCustomTrackingParameter($key, $value);
         }

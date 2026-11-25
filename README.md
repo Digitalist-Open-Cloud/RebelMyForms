@@ -50,7 +50,10 @@ To leave a form or a field out, add `data-rebel-ignore` to it:
 ```
 
 Hidden fields and buttons are not fields. A form counts as submitted when the browser sends its
-`submit` event.
+`submit` event, also when the website then refuses what was sent.
+
+To stop tracking the forms of a website, turn off **Track forms** under Administration >
+Websites > Manage.
 
 ## Reports
 
@@ -61,8 +64,10 @@ Hidden fields and buttons are not fields. A form counts as submitted when the br
 - **Forms in numbers**: the same five for the period.
 - **Forms**: one row for each form. A form is seen once for each page view it is on, and
   started when a visitor uses one of its fields. The start rate is the share of the views that
-  were started, and the submit rate the share of the starts that were submitted. Click a form
-  to see its fields.
+  were started, and the submit rate the share of the starts that were submitted. "Submitted
+  again" counts the forms that were submitted more than once in a page view, which usually
+  means the website refused the first attempt. Click a form to see its fields.
+- **Forms by page**: the pages the forms are on.
 
 The fields of a form:
 
@@ -73,11 +78,20 @@ The fields of a form:
 | Changes | How often its content was changed. Many more than "Used by" means corrections |
 | Returns | How often a visitor came back to the field |
 | Left empty | How often it was empty when the form was submitted |
+| Refused by browser | How often the browser would not send the form because of the field: required and empty, or not of the right type or pattern |
 | Drop-offs | How often it was the last field of a visitor who left without submitting |
 | Drop-off rate | Drop-offs as a share of "Used by" |
 
 The reports are built when Matomo processes its reports, and work with segments and row
 evolution. The segment "Form" narrows any other report to the visits that saw a form.
+
+The visit log and the visitor profile list the forms a visitor started, with whether they
+submitted them or the field they left at.
+
+## Documentation in Matomo
+
+**Form analytics documentation** under Administration > System tells the same as this file, for
+the users of Matomo.
 
 ## API
 
@@ -85,6 +99,7 @@ For users with view access to the website:
 
 - `RebelMyForms.get`
 - `RebelMyForms.getForms`
+- `RebelMyForms.getPages`
 - `RebelMyForms.getFields`, with `idSubtable` from a row of `getForms`
 
 ## Privacy
@@ -96,5 +111,6 @@ website apply. It is stored with the visit and deleted together with it.
 
 ```sh
 ./console tests:run RebelMyForms
+./console tests:run-ui --plugin=RebelMyForms
 deno test --allow-read tests/js
 ```

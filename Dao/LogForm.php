@@ -34,9 +34,11 @@ class LogForm
             `form_name` VARCHAR(100) NOT NULL,
             `started` TINYINT UNSIGNED NOT NULL DEFAULT 0,
             `submitted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `resubmits` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             `time_spent` INT UNSIGNED NOT NULL DEFAULT 0,
             `last_field` VARCHAR(100) NOT NULL DEFAULT '',
             `fields` TEXT NOT NULL,
+            `page_url` VARCHAR(500) NOT NULL DEFAULT '',
             PRIMARY KEY (`idlog`),
             UNIQUE KEY `form_of_pageview` (`idvisit`, `idpageview`, `form_name`),
             KEY `site_time` (`idsite`, `server_time`)
@@ -64,6 +66,7 @@ class LogForm
                 fields = IF(VALUES(started) = 1, VALUES(fields), fields),
                 started = GREATEST(started, VALUES(started)),
                 submitted = GREATEST(submitted, VALUES(submitted)),
+                resubmits = GREATEST(resubmits, VALUES(resubmits)),
                 time_spent = GREATEST(time_spent, VALUES(time_spent))',
             $this->table(),
             implode(', ', $columns),
@@ -78,6 +81,28 @@ class LogForm
     public function countForVisit($idVisit): int
     {
         return (int) Db::fetchOne('SELECT COUNT(*) FROM ' . $this->table() . ' WHERE idvisit = ?', [$idVisit]);
+    }
+
+    /**
+     * The forms that were started in the given visits.
+     *
+     * @param array<int|string> $idVisits
+     * @return array<int, array<string, mixed>>
+     */
+    public function getStartedFormsOfVisits(array $idVisits): array
+    {
+        $idVisits = array_map('intval', $idVisits);
+        if (!$idVisits) {
+            return [];
+        }
+
+        return Db::fetchAll(
+            'SELECT idvisit, server_time, form_name, submitted, last_field
+               FROM ' . $this->table() . '
+              WHERE idvisit IN (' . Common::getSqlStringFieldsArray($idVisits) . ') AND started = 1
+              ORDER BY idlog',
+            $idVisits
+        );
     }
 
     private function table(): string

@@ -22,6 +22,7 @@ class FormReport
 
     private const MAX_FORM_NAME = 100;
     private const MAX_FIELD_NAME = 60;
+    private const MAX_ADDRESS = 500;
     private const MAX_FIELDS_JSON = 20000;
     private const MAX_TIME_MS = 4 * 3600 * 1000;
     private const MAX_COUNT = 1000;
@@ -43,23 +44,28 @@ class FormReport
         $submitted = (int) (($params['rmf_c'] ?? 0) == 1);
         $started = (int) ($submitted || ($params['rmf_s'] ?? 0) == 1);
         $idPageView = $params['pv_id'] ?? '';
+        $url = $params['url'] ?? '';
 
         return [
             'idpageview' => is_string($idPageView) && preg_match('/^[a-zA-Z0-9]{1,6}$/', $idPageView) ? $idPageView : '',
             'form_name' => $name,
             'started' => $started,
             'submitted' => $submitted,
+            'resubmits' => $submitted ? self::number($params['rmf_r'] ?? 0, self::MAX_COUNT) : 0,
             'time_spent' => $started ? self::number($params['rmf_t'] ?? 0, self::MAX_TIME_MS) : 0,
             'last_field' => $started ? self::text($params['rmf_l'] ?? '', self::MAX_FIELD_NAME) : '',
             'fields' => json_encode($started ? self::fields($params['rmf_f'] ?? '') : []),
+            // What follows ? and # can hold personal data and is not needed to find the form.
+            'page_url' => self::text(is_string($url) ? preg_split('/[?#]/', $url)[0] : '', self::MAX_ADDRESS, self::MAX_ADDRESS),
         ];
     }
 
     /**
-     * The fields as [name, milliseconds with focus, changes, times focused, 1 when left blank].
+     * The fields as [name, milliseconds with focus, changes, times focused, 1 when left blank,
+     * times the browser refused it].
      *
      * @param mixed $json
-     * @return array<int, array{string, int, int, int, int}>
+     * @return array<int, array{string, int, int, int, int, int}>
      */
     private static function fields($json): array
     {
@@ -80,6 +86,7 @@ class FormReport
                 self::number($item[2] ?? 0, self::MAX_COUNT),
                 self::number($item[3] ?? 0, self::MAX_COUNT),
                 (int) (($item[4] ?? 0) == 1),
+                self::number($item[5] ?? 0, self::MAX_COUNT),
             ];
             if (count($fields) >= self::MAX_FIELDS) {
                 break;
@@ -92,7 +99,7 @@ class FormReport
     /**
      * @param mixed $value
      */
-    private static function text($value, int $max): string
+    private static function text($value, int $max, int $maxEncoded = 100): string
     {
         if (!is_string($value)) {
             return '';
@@ -100,8 +107,8 @@ class FormReport
 
         $text = trim(mb_substr(mb_scrub($value, 'UTF-8'), 0, $max, 'UTF-8'));
 
-        // Encoding makes a text longer, and the columns are 100 characters.
-        return mb_substr(Common::sanitizeInputValue($text), 0, 100, 'UTF-8');
+        // Encoding makes a text longer than its column.
+        return mb_substr(Common::sanitizeInputValue($text), 0, $maxEncoded, 'UTF-8');
     }
 
     /**
