@@ -57,6 +57,7 @@ class FormReport
             // As the numbers of Columns\FormOutcome.
             'outcome' => $started + $submitted,
             'resubmits' => $submitted ? self::number($params['rmf_r'] ?? 0, self::MAX_COUNT) : 0,
+            'time_to_start' => $started ? self::number($params['rmf_w'] ?? 0, self::MAX_TIME_MS) : 0,
             'time_spent' => $started ? self::number($params['rmf_t'] ?? 0, self::MAX_TIME_MS) : 0,
             'last_field' => $started ? self::text($params['rmf_l'] ?? '', self::MAX_FIELD_NAME) : '',
             'fields' => json_encode($started ? self::fields($params['rmf_f'] ?? '') : []),
@@ -79,10 +80,10 @@ class FormReport
 
     /**
      * The fields as [name, milliseconds with focus, changes, times focused, 1 when left blank,
-     * times the browser refused it, place in the form].
+     * times the browser refused it, place in the form, milliseconds before the first answer].
      *
      * @param mixed $json
-     * @return array<int, array{string, int, int, int, int, int, int}>
+     * @return array<int, array{string, int, int, int, int, int, int, int}>
      */
     private static function fields($json): array
     {
@@ -105,6 +106,7 @@ class FormReport
                 (int) (($item[4] ?? 0) == 1),
                 self::number($item[5] ?? 0, self::MAX_COUNT),
                 self::number($item[6] ?? 0, self::MAX_COUNT),
+                self::number($item[7] ?? 0, self::MAX_TIME_MS),
             ];
             if (count($fields) >= self::MAX_FIELDS) {
                 break;

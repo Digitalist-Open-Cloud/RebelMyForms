@@ -27,8 +27,15 @@ class Ratio extends ProcessedMetric
     private string $denominator;
     private bool $isTime;
 
-    public function __construct(string $name, string $numerator, string $denominator, bool $isTime = false)
+    /** @var string[] */
+    private array $temporary;
+
+    /**
+     * @param string[] $temporary columns that are only there to work this one out
+     */
+    public function __construct(string $name, string $numerator, string $denominator, bool $isTime = false, array $temporary = [])
     {
+        $this->temporary = $temporary;
         $this->name = $name;
         $this->numerator = $numerator;
         $this->denominator = $denominator;
@@ -43,6 +50,20 @@ class Ratio extends ProcessedMetric
     public static function submitRate(): self
     {
         return new self('form_submit_rate', 'nb_form_submissions', 'nb_form_starts');
+    }
+
+    /**
+     * What is worked out for a field, in a form or among the fields of all forms.
+     *
+     * @return self[]
+     */
+    public static function ofFields(): array
+    {
+        return [
+            new self('avg_field_time', 'sum_field_time', 'nb_field_interactions', true),
+            new self('avg_field_hesitation', 'sum_field_hesitation', 'nb_field_hesitations', true, ['nb_field_hesitations']),
+            new self('field_dropoff_rate', 'nb_field_dropoffs', 'nb_field_interactions'),
+        ];
     }
 
     public function getName()
@@ -63,7 +84,7 @@ class Ratio extends ProcessedMetric
     public function getTemporaryMetrics()
     {
         // The sum of a time is only there to work out the average.
-        return $this->isTime ? [$this->numerator] : [];
+        return array_merge($this->isTime ? [$this->numerator] : [], $this->temporary);
     }
 
     public function compute(Row $row)

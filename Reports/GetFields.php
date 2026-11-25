@@ -25,10 +25,7 @@ class GetFields extends Report
         $this->documentation = Piwik::translate('RebelMyForms_FieldsDocumentation');
         $this->categoryId = FormsCategory::ID;
         $this->metrics = ['field_position', 'nb_field_interactions', 'nb_field_changes', 'nb_field_refocuses', 'nb_field_blank', 'nb_field_invalid', 'nb_field_dropoffs'];
-        $this->processedMetrics = [
-            new Ratio('avg_field_time', 'sum_field_time', 'nb_field_interactions', true),
-            new Ratio('field_dropoff_rate', 'nb_field_dropoffs', 'nb_field_interactions'),
-        ];
+        $this->processedMetrics = Ratio::ofFields();
         // From the top of the form to its end.
         $this->defaultSortColumn = 'field_position';
         $this->defaultSortOrderDesc = false;
@@ -42,6 +39,7 @@ class GetFields extends Report
             'field_position',
             'nb_field_interactions',
             'avg_field_time',
+            'avg_field_hesitation',
             'nb_field_changes',
             'nb_field_refocuses',
             'nb_field_blank',
