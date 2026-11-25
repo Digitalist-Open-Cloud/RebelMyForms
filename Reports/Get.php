@@ -29,7 +29,7 @@ class Get extends Report
         $this->documentation = Piwik::translate('RebelMyForms_FormsOverTimeDocumentation');
         $this->categoryId = FormsCategory::ID;
         $this->subcategoryId = 'General_Overview';
-        $this->metrics = ['nb_form_views', 'nb_form_starts', 'nb_form_submissions'];
+        $this->metrics = ['nb_form_views', 'nb_form_starts', 'nb_form_submissions', 'nb_form_successes'];
         $this->processedMetrics = [Ratio::startRate(), Ratio::submitRate()];
         $this->order = 1;
     }

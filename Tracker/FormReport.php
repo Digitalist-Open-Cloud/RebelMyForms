@@ -18,6 +18,9 @@ class FormReport
 {
     public const PARAMETER = 'rmf_n';
 
+    // Sent with the name of a form the website says went through.
+    public const SUCCESS_PARAMETER = 'rmf_ok';
+
     public const MAX_FIELDS = 50;
 
     private const MAX_FORM_NAME = 100;
@@ -51,6 +54,8 @@ class FormReport
             'form_name' => $name,
             'started' => $started,
             'submitted' => $submitted,
+            // As the numbers of Columns\FormOutcome.
+            'outcome' => $started + $submitted,
             'resubmits' => $submitted ? self::number($params['rmf_r'] ?? 0, self::MAX_COUNT) : 0,
             'time_spent' => $started ? self::number($params['rmf_t'] ?? 0, self::MAX_TIME_MS) : 0,
             'last_field' => $started ? self::text($params['rmf_l'] ?? '', self::MAX_FIELD_NAME) : '',
@@ -61,11 +66,23 @@ class FormReport
     }
 
     /**
+     * The name of the form a request says went through, or null when it does not say so.
+     *
+     * @param array<string, mixed> $params
+     */
+    public static function succeededForm(array $params): ?string
+    {
+        $name = self::text($params[self::PARAMETER] ?? '', self::MAX_FORM_NAME);
+
+        return $name !== '' && ($params[self::SUCCESS_PARAMETER] ?? 0) == 1 ? $name : null;
+    }
+
+    /**
      * The fields as [name, milliseconds with focus, changes, times focused, 1 when left blank,
-     * times the browser refused it].
+     * times the browser refused it, place in the form].
      *
      * @param mixed $json
-     * @return array<int, array{string, int, int, int, int, int}>
+     * @return array<int, array{string, int, int, int, int, int, int}>
      */
     private static function fields($json): array
     {
@@ -87,6 +104,7 @@ class FormReport
                 self::number($item[3] ?? 0, self::MAX_COUNT),
                 (int) (($item[4] ?? 0) == 1),
                 self::number($item[5] ?? 0, self::MAX_COUNT),
+                self::number($item[6] ?? 0, self::MAX_COUNT),
             ];
             if (count($fields) >= self::MAX_FIELDS) {
                 break;

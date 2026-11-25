@@ -34,11 +34,25 @@
         <h3>{{ 'RebelMyForms_DocSubmittedTitle'|translate }}</h3>
         <p>{{ 'RebelMyForms_DocSubmitted'|translate }}</p>
 
+        <h3>{{ 'RebelMyForms_DocSuccessTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocSuccess'|translate }}</p>
+        <pre>window.RebelMyForms &amp;&amp; RebelMyForms.success(document.getElementById('contact'));
+
+window.RebelMyForms &amp;&amp; RebelMyForms.success('contact');</pre>
+
+        <h3>{{ 'RebelMyForms_DocContainersTitle'|translate }}</h3>
+        <p>{{ 'RebelMyForms_DocContainers'|translate }}</p>
+        <pre>&lt;div data-rebel-form="Checkout"&gt;
+  &lt;input name="card"&gt;
+&lt;/div&gt;</pre>
+
         <h3>{{ 'RebelMyForms_DocSegmentsTitle'|translate }}</h3>
         <p>{{ 'RebelMyForms_DocSegments'|translate }}</p>
         <pre>formName!=              visits that saw a form
 formName==contact       visits that saw the form "contact"
-formName=@signup        visits that saw a form whose name contains "signup"</pre>
+formName=@signup        visits that saw a form whose name contains "signup"
+formOutcome==abandoned  visits that started a form and did not submit it
+formOutcome==submitted  visits that submitted a form</pre>
 
         <h3>{{ 'RebelMyForms_DocStoredTitle'|translate }}</h3>
         <p>{{ 'RebelMyForms_DocStored'|translate(maxPerVisit) }}</p>
@@ -48,7 +62,8 @@ formName=@signup        visits that saw a form whose name contains "signup"</pre
         <pre>RebelMyForms.get
 RebelMyForms.getForms
 RebelMyForms.getFields
-RebelMyForms.getPages</pre>
+RebelMyForms.getPages
+RebelMyForms.getDevices</pre>
     </div>
 </div>
 {% endblock %}

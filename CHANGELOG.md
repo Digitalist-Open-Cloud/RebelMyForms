@@ -12,5 +12,10 @@
 - The visit log shows the forms a visitor started.
 - A setting for each website to turn form tracking off.
 - A documentation page in Matomo, under Administration.
+- The fields of a form are listed in the order they have in the form.
+- `RebelMyForms.success()` for the website to tell that a form went through.
+- An element with `data-rebel-form` is tracked as a form.
+- The report "Forms by device type".
+- The segment "Form outcome": seen, abandoned, submitted or succeeded.
 - The segment "Form", to narrow any report to the visits that saw a form.
 - The attributes `data-rebel-form` and `data-rebel-field` to name a form or a field, and `data-rebel-ignore` to leave one out.

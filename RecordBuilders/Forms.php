@@ -16,6 +16,7 @@ use Piwik\Config;
 use Piwik\Container\StaticContainer;
 use Piwik\DataAccess\LogQueryBuilder;
 use Piwik\DataTable;
+use Piwik\Plugins\RebelMyForms\Columns\FormOutcome;
 use Piwik\Plugins\RebelMyForms\Dao\LogForm;
 
 /**
@@ -25,9 +26,11 @@ class Forms extends RecordBuilder
 {
     public const RECORD = 'RebelMyForms_forms';
     public const PAGES = 'RebelMyForms_pages';
+    public const DEVICES = 'RebelMyForms_devices';
     public const NB_VIEWS = 'RebelMyForms_nb_form_views';
     public const NB_STARTS = 'RebelMyForms_nb_form_starts';
     public const NB_SUBMISSIONS = 'RebelMyForms_nb_form_submissions';
+    public const NB_SUCCESSES = 'RebelMyForms_nb_form_successes';
 
     private const MAX_FIELDS_OF_A_FORM = 100;
 
@@ -45,7 +48,7 @@ class Forms extends RecordBuilder
     {
         $maxRows = (int) Config::getInstance()->General['datatable_archiving_maximum_rows_standard'];
 
-        parent::__construct($maxRows ?: null, self::MAX_FIELDS_OF_A_FORM, 'nb_form_views');
+        parent::__construct($maxRows ?: null, self::MAX_FIELDS_OF_A_FORM, 'nb_form_views', ['field_position' => 'min']);
     }
 
     public function getRecordMetadata(ArchiveProcessor $archiveProcessor): array
@@ -53,9 +56,11 @@ class Forms extends RecordBuilder
         return [
             Record::make(Record::TYPE_BLOB, self::RECORD),
             Record::make(Record::TYPE_BLOB, self::PAGES),
+            Record::make(Record::TYPE_BLOB, self::DEVICES),
             Record::make(Record::TYPE_NUMERIC, self::NB_VIEWS),
             Record::make(Record::TYPE_NUMERIC, self::NB_STARTS),
             Record::make(Record::TYPE_NUMERIC, self::NB_SUBMISSIONS),
+            Record::make(Record::TYPE_NUMERIC, self::NB_SUCCESSES),
         ];
     }
 
@@ -84,7 +89,8 @@ class Forms extends RecordBuilder
 
         $query = $logAggregator->generateQuery(
             "$log.form_name AS label, COUNT(*) AS nb_form_views, SUM($log.started) AS nb_form_starts,
-             SUM($log.submitted) AS nb_form_submissions, SUM($log.resubmits > 0) AS nb_form_resubmits,
+             SUM($log.submitted) AS nb_form_submissions, SUM($log.outcome = " . FormOutcome::SUCCEEDED . ") AS nb_form_successes,
+             SUM($log.resubmits > 0) AS nb_form_resubmits,
              SUM($log.time_spent) AS sum_form_time",
             [$log],
             $where,
@@ -93,12 +99,13 @@ class Forms extends RecordBuilder
         );
 
         $table = new DataTable();
-        $totals = [self::NB_VIEWS => 0, self::NB_STARTS => 0, self::NB_SUBMISSIONS => 0];
+        $totals = [self::NB_VIEWS => 0, self::NB_STARTS => 0, self::NB_SUBMISSIONS => 0, self::NB_SUCCESSES => 0];
         foreach ($logAggregator->getDb()->fetchAll($query['sql'], $query['bind']) as $form) {
             $table->addRowFromSimpleArray(array_map('intval', array_slice($form, 1)) + ['label' => $form['label']]);
             $totals[self::NB_VIEWS] += (int) $form['nb_form_views'];
             $totals[self::NB_STARTS] += (int) $form['nb_form_starts'];
             $totals[self::NB_SUBMISSIONS] += (int) $form['nb_form_submissions'];
+            $totals[self::NB_SUCCESSES] += (int) $form['nb_form_successes'];
         }
 
         $query = $logAggregator->generateQuery(
@@ -112,6 +119,20 @@ class Forms extends RecordBuilder
         $pages = new DataTable();
         foreach ($logAggregator->getDb()->fetchAll($query['sql'], $query['bind']) as $page) {
             $pages->addRowFromSimpleArray(array_map('intval', array_slice($page, 1)) + ['label' => $page['label']]);
+        }
+
+        // The device is known from the visit a form belongs to.
+        $query = $logAggregator->generateQuery(
+            "log_visit.config_device_type AS label, COUNT(*) AS nb_form_views, SUM($log.started) AS nb_form_starts,
+             SUM($log.submitted) AS nb_form_submissions",
+            [$log, 'log_visit'],
+            $where,
+            'label',
+            'nb_form_views DESC'
+        );
+        $devices = new DataTable();
+        foreach ($logAggregator->getDb()->fetchAll($query['sql'], $query['bind']) as $device) {
+            $devices->addRowFromSimpleArray(array_map('intval', array_slice($device, 1)) + ['label' => $device['label'] ?? 'xx']);
         }
 
         $query = $logAggregator->generateQuery(
@@ -138,7 +159,7 @@ class Forms extends RecordBuilder
             }
         }
 
-        return [self::RECORD => $table, self::PAGES => $pages] + $totals;
+        return [self::RECORD => $table, self::PAGES => $pages, self::DEVICES => $devices] + $totals;
     }
 
     /**
@@ -162,6 +183,10 @@ class Forms extends RecordBuilder
             // A field that is empty says something when the form was sent with it empty.
             $sum['nb_field_blank'] += (int) ($blank && $form['submitted']);
             $sum['nb_field_invalid'] += $field[5] ?? 0;
+            // The earliest place the field had in the form.
+            if (!empty($field[6])) {
+                $sum['field_position'] = min($sum['field_position'] ?? $field[6], $field[6]);
+            }
             $sums[$name] = $sum;
         }
 

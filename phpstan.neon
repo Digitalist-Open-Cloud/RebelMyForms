@@ -6,6 +6,8 @@ parameters:
     excludePaths:
         - tests/*
         - github-action-tests (?)
+    scanFiles:
+        - ../DevicesDetection/functions.php
     bootstrapFiles:
         - ../../bootstrap-phpstan.php
     universalObjectCratesClasses:

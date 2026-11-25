@@ -44,6 +44,7 @@ function load({ forms = [], siteId = 1, loadedBefore = false } = {}) {
     window, document, (callback) => timers.push(callback), { now: () => env.now },
   );
   env.document = document;
+  env.window = window;
   env.fire = (type, target, after = 0) => { env.now += after; listeners[type] && listeners[type]({ target }); };
   // Lets the time pass that the script waits for a tracker.
   env.wait = (times = 1) => { for (let i = 0; i < times && timers.length; i++) timers.shift()(); };
@@ -93,7 +94,7 @@ Deno.test("a submitted form is sent with what happened in its fields", () => {
 
   assertEquals(env.requests.length, 2);
   assertEquals({ ...env.last(), rmf_f: "" }, { ca: "1", rmf_n: "contact", rmf_s: "1", rmf_c: "1", rmf_r: "0", rmf_t: "6000", rmf_l: "email", rmf_f: "" });
-  assertEquals(env.fields(), [["name", 2000, 1, 1, 0, 0], ["email", 3500, 1, 2, 0, 0], ["phone", 0, 0, 0, 1, 0]]);
+  assertEquals(env.fields(), [["name", 2000, 1, 1, 0, 0, 1], ["email", 3500, 1, 2, 0, 0, 2], ["phone", 0, 0, 0, 1, 0, 3]]);
 });
 
 Deno.test("what a visitor typed is not sent", () => {
@@ -126,7 +127,7 @@ Deno.test("a form that was started is sent when the visitor leaves, with the fie
   assertEquals(env.last().rmf_s, "1");
   assertEquals(env.last().rmf_c, "0");
   assertEquals(env.last().rmf_l, "email");
-  assertEquals(env.fields(), [["name", 1000, 0, 1, 1, 0], ["email", 4000, 0, 1, 1, 0]]);
+  assertEquals(env.fields(), [["name", 1000, 0, 1, 1, 0, 1], ["email", 4000, 0, 1, 1, 0, 2]]);
 });
 
 Deno.test("a hidden tab sends the form, and nothing is sent twice", () => {
@@ -156,7 +157,7 @@ Deno.test("the radio buttons of a group are one field, filled in when one is che
   env.fire("change", yes);
   env.fire("submit", form);
 
-  assertEquals(env.fields(), [["answer", 0, 1, 0, 0, 0], ["terms", 0, 0, 0, 1, 0]]);
+  assertEquals(env.fields(), [["answer", 0, 1, 0, 0, 0, 1], ["terms", 0, 0, 0, 1, 0, 2]]);
 });
 
 Deno.test("a field the browser refused and a form that is submitted again are counted", () => {
@@ -167,12 +168,54 @@ Deno.test("a field the browser refused and a form that is submitted again are co
   env.fire("invalid", email);
   env.fire("pagehide");
   assertEquals(env.last().rmf_c, "0");
-  assertEquals(env.fields(), [["email", 0, 0, 0, 1, 1]]);
+  assertEquals(env.fields(), [["email", 0, 0, 0, 1, 1, 1]]);
 
   env.fire("submit", form);
   assertEquals([env.last().rmf_c, env.last().rmf_r], ["1", "0"]);
   env.fire("submit", form);
   assertEquals([env.last().rmf_c, env.last().rmf_r], ["1", "1"]);
+});
+
+Deno.test("the fields are numbered in the order of the form, not in the order they were used", () => {
+  const form = makeForm();
+  field(form, { name: "first" });
+  const second = field(form, { name: "second" });
+  const env = load({ forms: [form] });
+
+  env.fire("focusin", second);
+  env.fire("submit", form);
+
+  assertEquals(env.fields().map((f) => [f[0], f[6]]), [["second", 2], ["first", 1]]);
+});
+
+Deno.test("an element that is marked as a form is one, with the fields inside it", () => {
+  const container = { ...makeForm({ "data-rebel-form": "Checkout" }), tagName: "DIV", elements: undefined };
+  const inside = [];
+  container.querySelectorAll = () => inside;
+  const card = {
+    tagName: "INPUT", type: "text", value: "", form: null,
+    getAttribute: (name) => (name === "name" ? "card" : null), hasAttribute: () => false,
+    closest: () => container,
+  };
+  inside.push(card);
+  const env = load({ forms: [container] });
+
+  env.fire("focusin", card);
+  env.window.RebelMyForms.success(container);
+
+  assertEquals(env.requests.map((r) => [r.rmf_n, r.rmf_s, r.rmf_c, r.rmf_ok]), [
+    ["Checkout", "0", "0", undefined], ["Checkout", "1", "1", undefined], ["Checkout", undefined, undefined, "1"],
+  ]);
+  assertEquals(JSON.parse(env.requests[1].rmf_f), [["card", 0, 0, 1, 1, 0, 1]]);
+});
+
+Deno.test("the website can tell by name that a form went through, on the page that follows", () => {
+  const env = load();
+
+  env.window.RebelMyForms.success("contact");
+  env.window.RebelMyForms.success("");
+
+  assertEquals(env.requests, [{ ca: "1", rmf_n: "contact", rmf_ok: "1" }]);
 });
 
 Deno.test("a form or a field that is marked to be ignored is left out", () => {

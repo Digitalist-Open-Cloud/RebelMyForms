@@ -12,6 +12,7 @@ namespace Piwik\Plugins\RebelMyForms\Dao;
 use Piwik\Common;
 use Piwik\Db;
 use Piwik\DbHelper;
+use Piwik\Plugins\RebelMyForms\Columns\FormOutcome;
 
 /**
  * One row for each form a visitor saw in a page view, with what they did in it.
@@ -34,6 +35,7 @@ class LogForm
             `form_name` VARCHAR(100) NOT NULL,
             `started` TINYINT UNSIGNED NOT NULL DEFAULT 0,
             `submitted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `outcome` TINYINT UNSIGNED NOT NULL DEFAULT 0,
             `resubmits` SMALLINT UNSIGNED NOT NULL DEFAULT 0,
             `time_spent` INT UNSIGNED NOT NULL DEFAULT 0,
             `last_field` VARCHAR(100) NOT NULL DEFAULT '',
@@ -66,6 +68,7 @@ class LogForm
                 fields = IF(VALUES(started) = 1, VALUES(fields), fields),
                 started = GREATEST(started, VALUES(started)),
                 submitted = GREATEST(submitted, VALUES(submitted)),
+                outcome = GREATEST(outcome, VALUES(outcome)),
                 resubmits = GREATEST(resubmits, VALUES(resubmits)),
                 time_spent = GREATEST(time_spent, VALUES(time_spent))',
             $this->table(),
@@ -73,6 +76,20 @@ class LogForm
             implode(', ', array_fill(0, count($columns), '?'))
         );
         Db::query($sql, array_values($row));
+    }
+
+    /**
+     * Marks the form of that name the visit saw last as one that went through.
+     *
+     * @param int|string $idVisit
+     */
+    public function markSucceeded($idVisit, string $formName): void
+    {
+        Db::query(
+            'UPDATE ' . $this->table() . ' SET started = 1, submitted = 1, outcome = ' . FormOutcome::SUCCEEDED . '
+              WHERE idvisit = ? AND form_name = ? ORDER BY idlog DESC LIMIT 1',
+            [$idVisit, $formName]
+        );
     }
 
     /**
@@ -97,7 +114,7 @@ class LogForm
         }
 
         return Db::fetchAll(
-            'SELECT idvisit, server_time, form_name, submitted, last_field
+            'SELECT idvisit, server_time, form_name, outcome, last_field
                FROM ' . $this->table() . '
               WHERE idvisit IN (' . Common::getSqlStringFieldsArray($idVisits) . ') AND started = 1
               ORDER BY idlog',

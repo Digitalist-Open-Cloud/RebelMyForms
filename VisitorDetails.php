@@ -11,6 +11,7 @@ namespace Piwik\Plugins\RebelMyForms;
 
 use Piwik\Piwik;
 use Piwik\Plugins\Live\VisitorDetailsAbstract;
+use Piwik\Plugins\RebelMyForms\Columns\FormOutcome;
 use Piwik\Plugins\RebelMyForms\Dao\LogForm;
 use Piwik\View;
 
@@ -25,7 +26,9 @@ class VisitorDetails extends VisitorDetailsAbstract
     public function provideActionsForVisitIds(&$actions, $visitIds)
     {
         foreach ((new LogForm())->getStartedFormsOfVisits($visitIds) as $form) {
-            if ($form['submitted']) {
+            if ($form['outcome'] == FormOutcome::SUCCEEDED) {
+                $outcome = Piwik::translate('RebelMyForms_VisitLogSucceeded');
+            } elseif ($form['outcome'] == FormOutcome::SUBMITTED) {
                 $outcome = Piwik::translate('RebelMyForms_VisitLogSubmitted');
             } elseif ($form['last_field'] !== '') {
                 $outcome = Piwik::translate('RebelMyForms_VisitLogLeftAt', [$form['last_field']]);
