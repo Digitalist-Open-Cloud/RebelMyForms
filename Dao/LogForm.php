@@ -1,0 +1,87 @@
+<?php
+
+/**
+ * Matomo - free/libre analytics platform
+ *
+ * @link    https://matomo.org
+ * @license https://www.gnu.org/licenses/gpl-3.0.html GPL v3 or later
+ */
+
+namespace Piwik\Plugins\RebelMyForms\Dao;
+
+use Piwik\Common;
+use Piwik\Db;
+use Piwik\DbHelper;
+
+/**
+ * One row for each form a visitor saw in a page view, with what they did in it.
+ */
+class LogForm
+{
+    public const TABLE = 'rebelmyforms_log';
+
+    // ponytail: the fields are JSON on the row of their form and summed in PHP when archiving.
+    // A table of their own when a segment on a field is needed.
+    public function install(): void
+    {
+        DbHelper::createTable(self::TABLE, "
+            `idlog` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+            `idsite` INT UNSIGNED NOT NULL,
+            `idvisit` BIGINT UNSIGNED NOT NULL,
+            `idvisitor` BINARY(8) NOT NULL,
+            `server_time` DATETIME NOT NULL,
+            `idpageview` CHAR(6) NOT NULL,
+            `form_name` VARCHAR(100) NOT NULL,
+            `started` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `submitted` TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            `time_spent` INT UNSIGNED NOT NULL DEFAULT 0,
+            `last_field` VARCHAR(100) NOT NULL DEFAULT '',
+            `fields` TEXT NOT NULL,
+            PRIMARY KEY (`idlog`),
+            UNIQUE KEY `form_of_pageview` (`idvisit`, `idpageview`, `form_name`),
+            KEY `site_time` (`idsite`, `server_time`)
+        ");
+    }
+
+    public function uninstall(): void
+    {
+        Db::dropTables([$this->table()]);
+    }
+
+    /**
+     * Stores a form of a page view, or brings the row it has up to date. What was started or
+     * submitted stays so.
+     *
+     * @param array<string, mixed> $row
+     */
+    public function record(array $row): void
+    {
+        $columns = array_keys($row);
+        $sql = sprintf(
+            'INSERT INTO %s (%s) VALUES (%s)
+             ON DUPLICATE KEY UPDATE
+                last_field = IF(VALUES(started) = 1, VALUES(last_field), last_field),
+                fields = IF(VALUES(started) = 1, VALUES(fields), fields),
+                started = GREATEST(started, VALUES(started)),
+                submitted = GREATEST(submitted, VALUES(submitted)),
+                time_spent = GREATEST(time_spent, VALUES(time_spent))',
+            $this->table(),
+            implode(', ', $columns),
+            implode(', ', array_fill(0, count($columns), '?'))
+        );
+        Db::query($sql, array_values($row));
+    }
+
+    /**
+     * @param int|string $idVisit
+     */
+    public function countForVisit($idVisit): int
+    {
+        return (int) Db::fetchOne('SELECT COUNT(*) FROM ' . $this->table() . ' WHERE idvisit = ?', [$idVisit]);
+    }
+
+    private function table(): string
+    {
+        return Common::prefixTable(self::TABLE);
+    }
+}
